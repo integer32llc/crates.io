@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use time::Timespec;
 
 use conduit::{Request, Response};
@@ -5,7 +6,7 @@ use conduit_router::RequestParams;
 use pg::GenericConnection;
 use pg::rows::Row;
 
-use Model;
+use {Model, Crate};
 use db::RequestTransaction;
 use util::{RequestUtils, CargoResult, ChainError};
 use util::errors::NotFound;
@@ -43,6 +44,53 @@ impl Category {
             crates_cnt: crates_cnt,
             category: category,
         }
+    }
+
+    pub fn update_crate(conn: &GenericConnection,
+                        krate: &Crate,
+                        categories: &[String]) -> CargoResult<()> {
+        let old_categories = try!(krate.categories(conn));
+        let old_categories = old_categories.iter().map(|cat| {
+            (&cat.category[..], cat)
+        }).collect::<HashMap<_, _>>();
+        // If a new category specified is not in the database, filter
+        // it out and don't add it.
+        let new_categories = try!(categories.iter().filter_map(|c| {
+            let cat = Category::find_by_category(conn, &c);
+            if let Ok(Some(db_cat)) = cat {
+                Some(Ok((&c[..], db_cat)))
+            } else {
+                None
+            }
+        }).collect::<CargoResult<HashMap<_, _>>>());
+
+        let to_rm = old_categories.iter().filter(|&(cat, _)| {
+            !new_categories.contains_key(cat)
+        }).map(|(_, v)| v.id).collect::<Vec<_>>();
+        let to_add = new_categories.iter().filter(|&(cat, _)| {
+            !old_categories.contains_key(cat)
+        }).map(|(_, v)| v.id).collect::<Vec<_>>();
+
+        if to_rm.len() > 0 {
+            try!(conn.execute("DELETE FROM crates_categories
+                                WHERE category_id = ANY($1)
+                                  AND crate_id = $2",
+                              &[&to_rm, &krate.id]));
+        }
+
+        if to_add.len() > 0 {
+            let insert = to_add.iter().map(|id| {
+                let crate_id: i32 = krate.id;
+                let id: i32 = *id;
+                format!("({}, {})", crate_id,  id)
+            }).collect::<Vec<_>>().join(", ");
+            try!(conn.execute(&format!("INSERT INTO crates_categories
+                                        (crate_id, category_id) VALUES {}",
+                                       insert),
+                              &[]));
+        }
+
+        Ok(())
     }
 }
 
