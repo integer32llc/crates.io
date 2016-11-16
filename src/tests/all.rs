@@ -26,7 +26,7 @@ use conduit_test::MockRequest;
 use cargo_registry::app::App;
 use cargo_registry::db::{self, RequestTransaction};
 use cargo_registry::dependency::Kind;
-use cargo_registry::{User, Crate, Version, Keyword, Dependency};
+use cargo_registry::{User, Crate, Version, Keyword, Dependency, Category, Model};
 use cargo_registry::upload as u;
 
 macro_rules! t {
@@ -63,6 +63,7 @@ struct Error { detail: String }
 #[derive(RustcDecodable)]
 struct Bad { errors: Vec<Error> }
 
+mod category;
 mod keyword;
 mod krate;
 mod user;
@@ -243,6 +244,17 @@ fn mock_dep(req: &mut Request, version: &Version, krate: &Crate,
 
 fn mock_keyword(req: &mut Request, name: &str) -> Keyword {
     Keyword::find_or_insert(req.tx().unwrap(), name).unwrap()
+}
+
+fn mock_category(req: &mut Request, name: &str) -> Category {
+    let conn = req.tx().unwrap();
+    let stmt = conn.prepare("
+        INSERT INTO categories (category)
+        VALUES ($1)
+        RETURNING *
+    ").unwrap();
+    let rows = stmt.query(&[&name]).unwrap();
+    Model::from_row(&rows.iter().next().unwrap())
 }
 
 fn logout(req: &mut Request) {
