@@ -503,6 +503,18 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
              format!("SELECT COUNT(crates.*) {}", base))
         })
     }).or_else(|| {
+        query.get("category").map(|cat| {
+            args.insert(0, cat);
+            let base = "FROM crates
+                        INNER JOIN crates_categories
+                                ON crates.id = crates_categories.crate_id
+                        INNER JOIN categories
+                                ON crates_categories.category_id = categories.id
+                        WHERE lower(categories.category) = lower($1)";
+            (format!("SELECT crates.* {} ORDER BY {} LIMIT $2 OFFSET $3", base, sort_sql),
+             format!("SELECT COUNT(crates.*) {}", base))
+        })
+    }).or_else(|| {
         query.get("user_id").and_then(|s| s.parse::<i32>().ok()).map(|user_id| {
             id = user_id;
             needs_id = true;
@@ -510,7 +522,7 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
                        INNER JOIN crate_owners
                           ON crate_owners.crate_id = crates.id
                        WHERE crate_owners.owner_id = $1
-                       AND crate_owners.owner_kind = {} 
+                       AND crate_owners.owner_kind = {}
                        ORDER BY {}
                       LIMIT $2 OFFSET $3",
                      OwnerKind::User as i32, sort_sql),
@@ -527,7 +539,7 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
             (format!("SELECT crates.* FROM crates
                       INNER JOIN follows
                          ON follows.crate_id = crates.id AND
-                            follows.user_id = $1 ORDER BY 
+                            follows.user_id = $1 ORDER BY
                       {} LIMIT $2 OFFSET $3", sort_sql),
              "SELECT COUNT(crates.*) FROM crates
               INNER JOIN follows
