@@ -26,7 +26,7 @@ use conduit_test::MockRequest;
 use cargo_registry::app::App;
 use cargo_registry::db::{self, RequestTransaction};
 use cargo_registry::dependency::Kind;
-use cargo_registry::{User, Crate, Version, Keyword, Dependency};
+use cargo_registry::{User, Crate, Version, Keyword, Dependency, Category, Model};
 use cargo_registry::upload as u;
 
 macro_rules! t {
@@ -63,13 +63,14 @@ struct Error { detail: String }
 #[derive(RustcDecodable)]
 struct Bad { errors: Vec<Error> }
 
+mod category;
+mod git;
 mod keyword;
 mod krate;
-mod user;
 mod record;
-mod git;
-mod version;
 mod team;
+mod user;
+mod version;
 
 fn app() -> (record::Bomb, Arc<App>, conduit_middleware::MiddlewareBuilder) {
     dotenv::dotenv().ok();
@@ -245,6 +246,17 @@ fn mock_keyword(req: &mut Request, name: &str) -> Keyword {
     Keyword::find_or_insert(req.tx().unwrap(), name).unwrap()
 }
 
+fn mock_category(req: &mut Request, name: &str) -> Category {
+    let conn = req.tx().unwrap();
+    let stmt = conn.prepare("
+        INSERT INTO categories (category)
+        VALUES ($1)
+        RETURNING *
+    ").unwrap();
+    let rows = stmt.query(&[&name]).unwrap();
+    Model::from_row(&rows.iter().next().unwrap())
+}
+
 fn logout(req: &mut Request) {
     req.mut_extensions().pop::<User>();
 }
@@ -257,20 +269,25 @@ fn new_req(app: Arc<App>, krate: &str, version: &str) -> MockRequest {
 fn new_req_full(app: Arc<App>, krate: Crate, version: &str,
                 deps: Vec<u::CrateDependency>) -> MockRequest {
     let mut req = ::req(app, Method::Put, "/api/v1/crates/new");
-    req.with_body(&new_req_body(krate, version, deps, Vec::new()));
+    req.with_body(&new_req_body(krate, version, deps, Vec::new(), Vec::new()));
     return req;
 }
 
 fn new_req_with_keywords(app: Arc<App>, krate: Crate, version: &str,
                          kws: Vec<String>) -> MockRequest {
     let mut req = ::req(app, Method::Put, "/api/v1/crates/new");
-    req.with_body(&new_req_body(krate, version, Vec::new(), kws));
+    req.with_body(&new_req_body(krate, version, Vec::new(), kws, Vec::new()));
     return req;
 }
 
+fn new_req_body_foo_2() -> Vec<u8> {
+    new_req_body(::krate("foo"), "2.0.0", Vec::new(), Vec::new(), Vec::new())
+}
+
 fn new_req_body(krate: Crate, version: &str, deps: Vec<u::CrateDependency>,
-                kws: Vec<String>) -> Vec<u8> {
+                kws: Vec<String>, cats: Vec<String>) -> Vec<u8> {
     let kws = kws.into_iter().map(u::Keyword).collect();
+    let cats = cats.into_iter().map(u::Category).collect();
     new_crate_to_body(&u::NewCrate {
         name: u::CrateName(krate.name),
         vers: u::CrateVersion(semver::Version::parse(version).unwrap()),
@@ -282,6 +299,7 @@ fn new_req_body(krate: Crate, version: &str, deps: Vec<u::CrateDependency>,
         documentation: krate.documentation,
         readme: krate.readme,
         keywords: Some(u::KeywordList(kws)),
+        categories: Some(u::CategoryList(cats)),
         license: Some("MIT".to_string()),
         license_file: None,
         repository: krate.repository,

@@ -35,6 +35,10 @@ Router.map(function() {
     this.route('keyword', { path: '/keywords/:keyword_id' }, function() {
         this.route('index', { path: '/' });
     });
+    this.route('categories');
+    this.route('category', { path: '/categories/:category_id' }, function() {
+        this.route('index', { path: '/' });
+    });
     this.route('catchAll', { path: '*path' });
 });
 
