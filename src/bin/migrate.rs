@@ -767,6 +767,7 @@ fn migrations() -> Vec<Migration> {
         Migration::add_table(20161115110541, "categories", " \
             id               SERIAL PRIMARY KEY, \
             category         VARCHAR NOT NULL, \
+            slug             VARCHAR NOT NULL UNIQUE, \
             crates_cnt       INTEGER NOT NULL DEFAULT 0, \
             created_at       TIMESTAMP NOT NULL DEFAULT current_timestamp"),
         Migration::new(20161115110542, |tx| {

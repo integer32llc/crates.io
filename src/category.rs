@@ -15,6 +15,7 @@ use util::errors::NotFound;
 pub struct Category {
     pub id: i32,
     pub category: String,
+    pub slug: String,
     pub created_at: Timespec,
     pub crates_cnt: i32,
 }
@@ -23,6 +24,7 @@ pub struct Category {
 pub struct EncodableCategory {
     pub id: String,
     pub category: String,
+    pub slug: String,
     pub created_at: String,
     pub crates_cnt: i32,
 }
@@ -38,10 +40,21 @@ impl Category {
         }))))
     }
 
+    pub fn find_by_slug(conn: &GenericConnection, slug: &str)
+                            -> CargoResult<Category> {
+        let stmt = try!(conn.prepare("SELECT * FROM categories \
+                                      WHERE slug = $1"));
+        let rows = try!(stmt.query(&[&slug]));
+        Ok(Model::from_row(&try!(rows.iter().next().chain_error(|| {
+            NotFound
+        }))))
+    }
+
     pub fn encodable(self) -> EncodableCategory {
-        let Category { id: _, crates_cnt, category, created_at } = self;
+        let Category { id: _, crates_cnt, category, slug, created_at } = self;
         EncodableCategory {
             id: category.clone(),
+            slug: slug.clone(),
             created_at: ::encode_time(created_at),
             crates_cnt: crates_cnt,
             category: category,
@@ -103,6 +116,7 @@ impl Model for Category {
             created_at: row.get("created_at"),
             crates_cnt: row.get("crates_cnt"),
             category: row.get("category"),
+            slug: row.get("slug"),
         }
     }
     fn table_name(_: Option<Category>) -> &'static str { "categories" }
@@ -148,9 +162,9 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
 
 /// Handles the `GET /categories/:category_id` route.
 pub fn show(req: &mut Request) -> CargoResult<Response> {
-    let name = &req.params()["category_id"];
+    let slug = &req.params()["category_id"];
     let conn = try!(req.tx());
-    let cat = try!(Category::find_by_category(&*conn, &name));
+    let cat = try!(Category::find_by_slug(&*conn, &slug));
 
     #[derive(RustcEncodable)]
     struct R { category: EncodableCategory }

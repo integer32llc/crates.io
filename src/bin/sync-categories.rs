@@ -25,7 +25,7 @@ fn sync(tx: &postgres::transaction::Transaction) -> postgres::Result<()> {
     let categories = include_str!("../categories.txt");
     let categories: Vec<_> = categories.lines().collect();
     let insert = categories.iter()
-                           .map(|c| format!("('{}')", c))
+                           .map(|c| format!("('{}', '{}')", c, slug(c)))
                            .collect::<Vec<_>>()
                            .join(",");
     let in_clause = categories.iter()
@@ -35,7 +35,7 @@ fn sync(tx: &postgres::transaction::Transaction) -> postgres::Result<()> {
 
     try!(tx.batch_execute(
         &format!(" \
-            INSERT INTO categories (category) \
+            INSERT INTO categories (category, slug) \
             VALUES {} \
             ON CONFLICT (LOWER(category)) DO NOTHING; \
             DELETE FROM categories \
@@ -45,4 +45,13 @@ fn sync(tx: &postgres::transaction::Transaction) -> postgres::Result<()> {
         )[..]
     ));
     Ok(())
+}
+
+fn slug(category: &str) -> String {
+    category.split(|c: char| {
+        !(c.is_alphanumeric() || c == '-' || c == '.' || c == '_' ||
+          c == '~' || c == '!' || c == '$' || c == '&' || c == '\'' ||
+          c == '(' || c == ')' || c == '*' || c == '+' || c == ',' ||
+          c == ';' || c == '=')
+    }).collect::<Vec<_>>().join("-").to_lowercase()
 }
