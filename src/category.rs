@@ -20,7 +20,7 @@ pub struct Category {
     pub crates_cnt: i32,
 }
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct EncodableCategory {
     pub id: String,
     pub category: String,
@@ -126,6 +126,14 @@ impl Category {
         let rows = try!(stmt.query(&[]));
         Ok(rows.iter().next().unwrap().get("count"))
     }
+
+    pub fn subcategories(&self, conn: &GenericConnection)
+                                -> CargoResult<Vec<Category>> {
+        let stmt = try!(conn.prepare("SELECT * FROM categories \
+                                      WHERE category ILIKE $1 || '::%'"));
+        let rows = try!(stmt.query(&[&self.category]));
+        Ok(rows.iter().map(|r| Model::from_row(&r)).collect())
+    }
 }
 
 impl Model for Category {
@@ -187,8 +195,17 @@ pub fn show(req: &mut Request) -> CargoResult<Response> {
     let slug = &req.params()["category_id"];
     let conn = try!(req.tx());
     let cat = try!(Category::find_by_slug(&*conn, &slug));
+    let subcats = try!(cat.subcategories(&*conn)).into_iter().map(|s| {
+        s.encodable()
+    }).collect();
 
     #[derive(RustcEncodable)]
-    struct R { category: EncodableCategory }
-    Ok(req.json(&R { category: cat.encodable() }))
+    struct R {
+        category: EncodableCategory,
+        subcategories: Vec<EncodableCategory>
+    }
+    Ok(req.json(&R {
+        category: cat.encodable(),
+        subcategories: subcats,
+    }))
 }
