@@ -31,19 +31,11 @@ impl Category {
     pub fn find_by_category(conn: &GenericConnection, name: &str)
                             -> CargoResult<Category> {
         let stmt = try!(conn.prepare("SELECT * FROM categories \
-                                      WHERE category = $1"));
+                                      WHERE LOWER(category) = LOWER($1)"));
         let rows = try!(stmt.query(&[&name]));
         Ok(Model::from_row(&try!(rows.iter().next().chain_error(|| {
             NotFound
         }))))
-    }
-
-    pub fn find_all_by_category(conn: &GenericConnection, names: &[String])
-                                  -> CargoResult<Vec<Category>> {
-        let stmt = try!(conn.prepare("SELECT * FROM categories \
-                                      WHERE category = ANY($1)"));
-        let rows = try!(stmt.query(&[&names]));
-        Ok(rows.iter().map(|r| Model::from_row(&r)).collect())
     }
 
     pub fn encodable(self) -> EncodableCategory {
@@ -65,9 +57,10 @@ impl Category {
         }).collect();
         // If a new category specified is not in the database, filter
         // it out and don't add it.
-        let new_categories = try!(
-            Category::find_all_by_category(conn, categories)
-        );
+        let new_categories: Vec<Category> = categories.iter().flat_map(|c| {
+            Category::find_by_category(conn, &c).ok()
+        }).collect();
+
         let new_categories_ids: HashSet<_> = new_categories.iter().map(|cat| {
             cat.id
         }).collect();

@@ -37,7 +37,7 @@ fn sync(tx: &postgres::transaction::Transaction) -> postgres::Result<()> {
         &format!(" \
             INSERT INTO categories (category) \
             VALUES {} \
-            ON CONFLICT (category) DO NOTHING; \
+            ON CONFLICT (LOWER(category)) DO NOTHING; \
             DELETE FROM categories \
             WHERE category NOT IN ({});",
             insert,

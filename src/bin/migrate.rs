@@ -766,9 +766,17 @@ fn migrations() -> Vec<Migration> {
         }),
         Migration::add_table(20161115110541, "categories", " \
             id               SERIAL PRIMARY KEY, \
-            category         VARCHAR NOT NULL UNIQUE, \
+            category         VARCHAR NOT NULL, \
             crates_cnt       INTEGER NOT NULL DEFAULT 0, \
             created_at       TIMESTAMP NOT NULL DEFAULT current_timestamp"),
+        Migration::new(20161115110542, |tx| {
+            try!(tx.execute("CREATE UNIQUE INDEX index_category_name \
+                             ON categories (lower(category))", &[]));
+            Ok(())
+        }, |tx| {
+            try!(tx.execute("DROP INDEX index_category_name", &[]));
+            Ok(())
+        }),
         Migration::add_table(20161115111828, "crates_categories", " \
             crate_id         INTEGER NOT NULL, \
             category_id      INTEGER NOT NULL"),

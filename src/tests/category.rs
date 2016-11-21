@@ -78,8 +78,8 @@ fn update_crate() {
     assert_eq!(cnt(&mut req, "cat1"), 0);
     assert_eq!(cnt(&mut req, "cat2"), 0);
 
-    // Adding 2 categories
-    Category::update_crate(tx(&req), &krate, &["cat1".to_string(),
+    // Adding 2 categories, one of which differs by case
+    Category::update_crate(tx(&req), &krate, &["CAT1".to_string(),
                                                "cat2".to_string()]).unwrap();
     assert_eq!(cnt(&mut req, "cat1"), 1);
     assert_eq!(cnt(&mut req, "cat2"), 1);
