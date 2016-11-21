@@ -20,13 +20,14 @@ use semver;
 use time::{Timespec, Duration};
 use url::Url;
 
-use {Model, User, Keyword, Version};
+use {Model, User, Keyword, Version, Category};
 use app::{App, RequestApp};
 use db::RequestTransaction;
 use dependency::{Dependency, EncodableDependency};
 use download::{VersionDownload, EncodableVersionDownload};
 use git;
 use keyword::EncodableKeyword;
+use category::EncodableCategory;
 use upload;
 use user::RequestUser;
 use owner::{EncodableOwner, Owner, Rights, OwnerKind, Team, rights};
@@ -59,6 +60,7 @@ pub struct EncodableCrate {
     pub updated_at: String,
     pub versions: Option<Vec<i32>>,
     pub keywords: Option<Vec<String>>,
+    pub categories: Option<Vec<String>>,
     pub created_at: String,
     pub downloads: i32,
     pub max_version: String,
@@ -227,9 +229,14 @@ impl Crate {
         parts.next().is_none()
     }
 
+    pub fn minimal_encodable(self) -> EncodableCrate {
+        self.encodable(None, None, None)
+    }
+
     pub fn encodable(self,
                      versions: Option<Vec<i32>>,
-                     keywords: Option<&[Keyword]>)
+                     keywords: Option<&[Keyword]>,
+                     categories: Option<&[Category]>)
                      -> EncodableCrate {
         let Crate {
             name, created_at, updated_at, downloads, max_version, description,
@@ -241,6 +248,7 @@ impl Crate {
             None => Some(format!("/api/v1/crates/{}/versions", name)),
         };
         let keyword_ids = keywords.map(|kws| kws.iter().map(|kw| kw.keyword.clone()).collect());
+        let category_ids = categories.map(|cats| cats.iter().map(|cat| cat.category.clone()).collect());
         EncodableCrate {
             id: name.clone(),
             name: name.clone(),
@@ -249,6 +257,7 @@ impl Crate {
             downloads: downloads,
             versions: versions,
             keywords: keyword_ids,
+            categories: category_ids,
             max_version: max_version.to_string(),
             documentation: documentation,
             homepage: homepage,
@@ -386,6 +395,16 @@ impl Crate {
         Ok(rows.iter().map(|r| Model::from_row(&r)).collect())
     }
 
+    pub fn categories(&self, conn: &GenericConnection) -> CargoResult<Vec<Category>> {
+        let stmt = try!(conn.prepare("SELECT categories.* FROM categories \
+                                      LEFT JOIN crates_categories \
+                                      ON categories.id = \
+                                         crates_categories.category_id \
+                                      WHERE crates_categories.crate_id = $1"));
+        let rows = try!(stmt.query(&[&self.id]));
+        Ok(rows.iter().map(|r| Model::from_row(&r)).collect())
+    }
+
     /// Returns (dependency, dependent crate name)
     pub fn reverse_dependencies(&self,
                                 conn: &GenericConnection,
@@ -503,6 +522,19 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
              format!("SELECT COUNT(crates.*) {}", base))
         })
     }).or_else(|| {
+        query.get("category").map(|cat| {
+            args.insert(0, cat);
+            let base = "FROM crates \
+                        INNER JOIN crates_categories \
+                                ON crates.id = crates_categories.crate_id \
+                        INNER JOIN categories \
+                                ON crates_categories.category_id = \
+                                   categories.id \
+                        WHERE lower(categories.category) = lower($1)";
+            (format!("SELECT crates.* {} ORDER BY {} LIMIT $2 OFFSET $3", base, sort_sql),
+             format!("SELECT COUNT(crates.*) {}", base))
+        })
+    }).or_else(|| {
         query.get("user_id").and_then(|s| s.parse::<i32>().ok()).map(|user_id| {
             id = user_id;
             needs_id = true;
@@ -510,7 +542,7 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
                        INNER JOIN crate_owners
                           ON crate_owners.crate_id = crates.id
                        WHERE crate_owners.owner_id = $1
-                       AND crate_owners.owner_kind = {} 
+                       AND crate_owners.owner_kind = {}
                        ORDER BY {}
                       LIMIT $2 OFFSET $3",
                      OwnerKind::User as i32, sort_sql),
@@ -527,7 +559,7 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
             (format!("SELECT crates.* FROM crates
                       INNER JOIN follows
                          ON follows.crate_id = crates.id AND
-                            follows.user_id = $1 ORDER BY 
+                            follows.user_id = $1 ORDER BY
                       {} LIMIT $2 OFFSET $3", sort_sql),
              "SELECT COUNT(crates.*) FROM crates
               INNER JOIN follows
@@ -554,7 +586,7 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
     let mut crates = Vec::new();
     for row in try!(stmt.query(&args)).iter() {
         let krate: Crate = Model::from_row(&row);
-        crates.push(krate.encodable(None, None));
+        crates.push(krate.minimal_encodable());
     }
 
     // Query for the total count of crates
@@ -589,7 +621,7 @@ pub fn summary(req: &mut Request) -> CargoResult<Response> {
         let rows = try!(stmt.query(&[]));
         Ok(rows.iter().map(|r| {
             let krate: Crate = Model::from_row(&r);
-            krate.encodable(None, None)
+            krate.minimal_encodable()
         }).collect::<Vec<EncodableCrate>>())
     };
     let new_crates = try!(tx.prepare("SELECT * FROM crates \
@@ -626,19 +658,22 @@ pub fn show(req: &mut Request) -> CargoResult<Response> {
     let versions = try!(krate.versions(conn));
     let ids = versions.iter().map(|v| v.id).collect();
     let kws = try!(krate.keywords(conn));
+    let cats = try!(krate.categories(conn));
 
     #[derive(RustcEncodable)]
     struct R {
         krate: EncodableCrate,
         versions: Vec<EncodableVersion>,
         keywords: Vec<EncodableKeyword>,
+        categories: Vec<EncodableCategory>,
     }
     Ok(req.json(&R {
-        krate: krate.clone().encodable(Some(ids), Some(&kws)),
+        krate: krate.clone().encodable(Some(ids), Some(&kws), Some(&cats)),
         versions: versions.into_iter().map(|v| {
             v.encodable(&krate.name)
         }).collect(),
         keywords: kws.into_iter().map(|k| k.encodable()).collect(),
+        categories: cats.into_iter().map(|k| k.encodable()).collect(),
     }))
 }
 
@@ -655,6 +690,10 @@ pub fn new(req: &mut Request) -> CargoResult<Response> {
     let keywords = new_crate.keywords.as_ref().map(|s| &s[..])
                                      .unwrap_or(&[]);
     let keywords = keywords.iter().map(|k| k[..].to_string()).collect::<Vec<_>>();
+
+    let categories = new_crate.categories.as_ref().map(|s| &s[..])
+                                     .unwrap_or(&[]);
+    let categories: Vec<_> = categories.iter().map(|k| k[..].to_string()).collect();
 
     // Persist the new crate, if it doesn't already exist
     let mut krate = try!(Crate::find_or_insert(try!(req.tx()), name, user.id,
@@ -699,6 +738,9 @@ pub fn new(req: &mut Request) -> CargoResult<Response> {
 
     // Update all keywords for this crate
     try!(Keyword::update_crate(try!(req.tx()), &krate, &keywords));
+
+    // Update all categories for this crate
+    try!(Category::update_crate(try!(req.tx()), &krate, &categories));
 
     // Upload the crate to S3
     let mut handle = req.app().handle();
@@ -756,7 +798,7 @@ pub fn new(req: &mut Request) -> CargoResult<Response> {
 
     #[derive(RustcEncodable)]
     struct R { krate: EncodableCrate }
-    Ok(req.json(&R { krate: krate.encodable(None, None) }))
+    Ok(req.json(&R { krate: krate.minimal_encodable() }))
 }
 
 fn parse_new_headers(req: &mut Request) -> CargoResult<(upload::NewCrate, User)> {
