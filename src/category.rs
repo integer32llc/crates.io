@@ -63,15 +63,22 @@ impl Category {
 
     pub fn update_crate(conn: &GenericConnection,
                         krate: &Crate,
-                        categories: &[String]) -> CargoResult<()> {
+                        categories: &[String]) -> CargoResult<Vec<String>> {
         let old_categories = try!(krate.categories(conn));
         let old_categories_ids: HashSet<_> = old_categories.iter().map(|cat| {
             cat.id
         }).collect();
         // If a new category specified is not in the database, filter
-        // it out and don't add it.
+        // it out and don't add it. Return it to be able to warn about it.
+        let mut invalid_categories = vec![];
         let new_categories: Vec<Category> = categories.iter().flat_map(|c| {
-            Category::find_by_category(conn, &c).ok()
+            match Category::find_by_category(conn, &c) {
+                Ok(cat) => Some(cat),
+                Err(_) => {
+                    invalid_categories.push(c.to_string());
+                    None
+                },
+            }
         }).collect();
 
         let new_categories_ids: HashSet<_> = new_categories.iter().map(|cat| {
@@ -105,7 +112,7 @@ impl Category {
                               &[]));
         }
 
-        Ok(())
+        Ok(invalid_categories)
     }
 }
 
