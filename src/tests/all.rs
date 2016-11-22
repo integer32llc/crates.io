@@ -251,13 +251,13 @@ fn mock_keyword(req: &mut Request, name: &str) -> Keyword {
     Keyword::find_or_insert(req.tx().unwrap(), name).unwrap()
 }
 
-fn mock_category(req: &mut Request, name: &str) -> Category {
+fn mock_category(req: &mut Request, name: &str, slug: &str) -> Category {
     let conn = req.tx().unwrap();
     let stmt = conn.prepare(" \
-        INSERT INTO categories (category) \
-        VALUES ($1) \
+        INSERT INTO categories (category, slug) \
+        VALUES ($1, $2) \
         RETURNING *").unwrap();
-    let rows = stmt.query(&[&name]).unwrap();
+    let rows = stmt.query(&[&name, &slug]).unwrap();
     Model::from_row(&rows.iter().next().unwrap())
 }
 
@@ -280,6 +280,13 @@ fn new_req_with_keywords(app: Arc<App>, krate: Crate, version: &str,
                          kws: Vec<String>) -> MockRequest {
     let mut req = ::req(app, Method::Put, "/api/v1/crates/new");
     req.with_body(&new_req_body(krate, version, Vec::new(), kws, Vec::new()));
+    return req;
+}
+
+fn new_req_with_categories(app: Arc<App>, krate: Crate, version: &str,
+                           cats: Vec<String>) -> MockRequest {
+    let mut req = ::req(app, Method::Put, "/api/v1/crates/new");
+    req.with_body(&new_req_body(krate, version, Vec::new(), Vec::new(), cats));
     return req;
 }
 

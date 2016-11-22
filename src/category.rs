@@ -15,39 +15,46 @@ use util::errors::NotFound;
 pub struct Category {
     pub id: i32,
     pub category: String,
+    pub slug: String,
     pub created_at: Timespec,
     pub crates_cnt: i32,
 }
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct EncodableCategory {
     pub id: String,
     pub category: String,
+    pub slug: String,
     pub created_at: String,
     pub crates_cnt: i32,
 }
 
 impl Category {
     pub fn find_by_category(conn: &GenericConnection, name: &str)
-                            -> CargoResult<Option<Category>> {
+                            -> CargoResult<Category> {
         let stmt = try!(conn.prepare("SELECT * FROM categories \
-                                      WHERE category = $1"));
+                                      WHERE LOWER(category) = LOWER($1)"));
         let rows = try!(stmt.query(&[&name]));
-        Ok(rows.iter().next().map(|r| Model::from_row(&r)))
+        Ok(Model::from_row(&try!(rows.iter().next().chain_error(|| {
+            NotFound
+        }))))
     }
 
-    pub fn find_all_by_category(conn: &GenericConnection, names: &[String])
-                                  -> CargoResult<Vec<Category>> {
+    pub fn find_by_slug(conn: &GenericConnection, slug: &str)
+                            -> CargoResult<Category> {
         let stmt = try!(conn.prepare("SELECT * FROM categories \
-                                      WHERE category = ANY($1)"));
-        let rows = try!(stmt.query(&[&names]));
-        Ok(rows.iter().map(|r| Model::from_row(&r)).collect())
+                                      WHERE slug = $1"));
+        let rows = try!(stmt.query(&[&slug]));
+        Ok(Model::from_row(&try!(rows.iter().next().chain_error(|| {
+            NotFound
+        }))))
     }
 
     pub fn encodable(self) -> EncodableCategory {
-        let Category { id: _, crates_cnt, category, created_at } = self;
+        let Category { id: _, crates_cnt, category, slug, created_at } = self;
         EncodableCategory {
             id: category.clone(),
+            slug: slug.clone(),
             created_at: ::encode_time(created_at),
             crates_cnt: crates_cnt,
             category: category,
@@ -56,16 +63,24 @@ impl Category {
 
     pub fn update_crate(conn: &GenericConnection,
                         krate: &Crate,
-                        categories: &[String]) -> CargoResult<()> {
+                        categories: &[String]) -> CargoResult<Vec<String>> {
         let old_categories = try!(krate.categories(conn));
         let old_categories_ids: HashSet<_> = old_categories.iter().map(|cat| {
             cat.id
         }).collect();
         // If a new category specified is not in the database, filter
-        // it out and don't add it.
-        let new_categories = try!(
-            Category::find_all_by_category(conn, categories)
-        );
+        // it out and don't add it. Return it to be able to warn about it.
+        let mut invalid_categories = vec![];
+        let new_categories: Vec<Category> = categories.iter().flat_map(|c| {
+            match Category::find_by_category(conn, &c) {
+                Ok(cat) => Some(cat),
+                Err(_) => {
+                    invalid_categories.push(c.to_string());
+                    None
+                },
+            }
+        }).collect();
+
         let new_categories_ids: HashSet<_> = new_categories.iter().map(|cat| {
             cat.id
         }).collect();
@@ -97,7 +112,27 @@ impl Category {
                               &[]));
         }
 
-        Ok(())
+        Ok(invalid_categories)
+    }
+
+    pub fn count_toplevel(conn: &GenericConnection) -> CargoResult<i64> {
+        let sql = format!("\
+            SELECT COUNT(*) \
+            FROM {} \
+            WHERE category NOT LIKE '%::%'",
+            Model::table_name(None::<Self>
+        ));
+        let stmt = try!(conn.prepare(&sql));
+        let rows = try!(stmt.query(&[]));
+        Ok(rows.iter().next().unwrap().get("count"))
+    }
+
+    pub fn subcategories(&self, conn: &GenericConnection)
+                                -> CargoResult<Vec<Category>> {
+        let stmt = try!(conn.prepare("SELECT * FROM categories \
+                                      WHERE category ILIKE $1 || '::%'"));
+        let rows = try!(stmt.query(&[&self.category]));
+        Ok(rows.iter().map(|r| Model::from_row(&r)).collect())
     }
 }
 
@@ -108,6 +143,7 @@ impl Model for Category {
             created_at: row.get("created_at"),
             crates_cnt: row.get("crates_cnt"),
             category: row.get("category"),
+            slug: row.get("slug"),
         }
     }
     fn table_name(_: Option<Category>) -> &'static str { "categories" }
@@ -124,10 +160,13 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
         _ => "ORDER BY category ASC",
     };
 
-    // Collect all the categories
-    let stmt = try!(conn.prepare(&format!("SELECT * FROM categories {} \
-                                           LIMIT $1 OFFSET $2",
-                                          sort_sql)));
+    // Collect all the top-level categories
+    let stmt = try!(conn.prepare(&format!(
+        "SELECT * FROM categories \
+         WHERE category NOT LIKE '%::%' {} \
+         LIMIT $1 OFFSET $2",
+         sort_sql
+    )));
 
     let categories: Vec<_> = try!(stmt.query(&[&limit, &offset]))
         .iter()
@@ -138,7 +177,7 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
         .collect();
 
     // Query for the total count of categories
-    let total = try!(Category::count(conn));
+    let total = try!(Category::count_toplevel(conn));
 
     #[derive(RustcEncodable)]
     struct R { categories: Vec<EncodableCategory>, meta: Meta }
@@ -153,12 +192,20 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
 
 /// Handles the `GET /categories/:category_id` route.
 pub fn show(req: &mut Request) -> CargoResult<Response> {
-    let name = &req.params()["category_id"];
+    let slug = &req.params()["category_id"];
     let conn = try!(req.tx());
-    let cat = try!(Category::find_by_category(&*conn, &name));
-    let cat = try!(cat.chain_error(|| NotFound));
+    let cat = try!(Category::find_by_slug(&*conn, &slug));
+    let subcats = try!(cat.subcategories(&*conn)).into_iter().map(|s| {
+        s.encodable()
+    }).collect();
 
     #[derive(RustcEncodable)]
-    struct R { category: EncodableCategory }
-    Ok(req.json(&R { category: cat.encodable() }))
+    struct R {
+        category: EncodableCategory,
+        subcategories: Vec<EncodableCategory>
+    }
+    Ok(req.json(&R {
+        category: cat.encodable(),
+        subcategories: subcats,
+    }))
 }
