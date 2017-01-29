@@ -1,15 +1,17 @@
+use std::str::FromStr;
 use std::collections::HashMap;
 
 use conduit::{Request, Response};
 use conduit_router::RequestParams;
 use diesel;
 use diesel::pg::{Pg, PgConnection};
+use diesel::pg::upsert::*;
 use diesel::prelude::*;
 use pg::GenericConnection;
 use pg::rows::Row;
 use rustc_serialize::json;
 use semver;
-use time::{Duration, Timespec, now_utc, strptime};
+use time::{self, Duration, Timespec, now_utc, strptime};
 use url;
 
 use app::RequestApp;
@@ -19,9 +21,9 @@ use download::{VersionDownload, EncodableVersionDownload};
 use git;
 use owner::{rights, Rights};
 use schema::*;
+use upload;
 use user::RequestUser;
-use util::errors::CargoError;
-use util::{RequestUtils, CargoResult, ChainError, internal, human};
+use util::{RequestUtils, CargoError, CargoResult, ChainError, internal, human};
 use {Model, Crate};
 
 #[derive(Clone, Identifiable, Associations)]
@@ -68,6 +70,60 @@ pub struct VersionLinks {
     pub dependencies: String,
     pub version_downloads: String,
     pub authors: String,
+}
+
+#[derive(Insertable, AsChangeset)]
+#[table_name="build_info"]
+#[primary_key(version_id, rust_version, target)]
+struct NewBuildInfo {
+    version_id: i32,
+    rust_version: String,
+    target: String,
+    passed: bool,
+}
+
+pub enum ChannelVersion {
+    Stable(semver::Version),
+    Beta(Timespec),
+    Nightly(Timespec),
+}
+
+impl FromStr for ChannelVersion {
+    type Err = Box<CargoError>;
+
+    fn from_str(s: &str) -> CargoResult<Self> {
+        // Recognized formats:
+        // rustc 1.14.0 (e8a012324 2016-12-16)
+        // rustc 1.15.0-beta.5 (10893a9a3 2017-01-19)
+        // rustc 1.16.0-nightly (df8debf6d 2017-01-25)
+
+        let pieces: Vec<_> = s.split(&[' ', '(', ')'][..])
+                              .filter(|s| !s.trim().is_empty())
+                              .collect();
+        if pieces.len() != 4 {
+            return Err(human(&format_args!(
+                "rust_version `{}` not recognized; \
+                expected format like `rustc X.Y.Z (SHA YYYY-MM-DD)`",
+                s
+            )));
+        }
+
+        if pieces[1].contains("nightly") {
+            Ok(ChannelVersion::Nightly(time::strptime(pieces[3], "%Y-%m-%d")?.to_timespec()))
+        } else if pieces[1].contains("beta") {
+            Ok(ChannelVersion::Beta(time::strptime(pieces[3], "%Y-%m-%d")?.to_timespec()))
+        } else {
+            let v = semver::Version::parse(pieces[1])?;
+            if v.pre.is_empty() {
+                Ok(ChannelVersion::Stable(v))
+            } else {
+                Err(human(&format_args!(
+                    "rust_version `{}` not recognized as nightly, beta, or stable",
+                    s
+                )))
+            }
+        }
+    }
 }
 
 impl Version {
@@ -184,6 +240,32 @@ impl Version {
                 pre: vec![],
                 build: vec![],
             })
+    }
+
+    pub fn store_build_info(&self,
+                            conn: &PgConnection,
+                            info: upload::VersionBuildInfo) -> CargoResult<()> {
+
+        // Verify specified Rust version will parse before doing any inserting
+        info.channel_version()?;
+
+        let bi = NewBuildInfo {
+            version_id: self.id,
+            rust_version: info.rust_version,
+            target: info.target,
+            passed: info.passed,
+        };
+
+        diesel::insert(&bi.on_conflict(
+            build_info::table.primary_key(),
+            do_update()
+                .set((build_info::passed.eq(excluded(build_info::passed)),
+                      build_info::updated_at.eq(now_utc().to_timespec())))
+        ))
+            .into(build_info::table)
+            .execute(conn)?;
+
+        Ok(())
     }
 }
 
@@ -447,6 +529,29 @@ fn modify_yank(req: &mut Request, yanked: bool) -> CargoResult<Response> {
             Ok(())
         })?;
     }
+
+    #[derive(RustcEncodable)]
+    struct R { ok: bool }
+    Ok(req.json(&R{ ok: true }))
+}
+
+/// Handles the `POST /crates/:crate_id/:version/build_info` route.
+pub fn publish_build_info(req: &mut Request) -> CargoResult<Response> {
+    let mut body = String::new();
+    try!(req.body().read_to_string(&mut body));
+    let info: upload::VersionBuildInfo = try!(json::decode(&body).map_err(|e| {
+        human(&format_args!("invalid upload request: {:?}", e))
+    }));
+
+    let (version, krate) = try!(version_and_crate(req));
+    let user = try!(req.user());
+    let tx = try!(req.db_conn());
+    let owners = try!(krate.owners(&tx));
+    if try!(rights(req.app(), &owners, user)) < Rights::Publish {
+        return Err(human("must already be an owner to publish build info"))
+    }
+
+    version.store_build_info(&tx, info)?;
 
     #[derive(RustcEncodable)]
     struct R { ok: bool }

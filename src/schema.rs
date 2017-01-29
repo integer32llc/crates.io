@@ -10,6 +10,19 @@ table! {
 }
 
 table! {
+    build_info (version_id,
+    rust_version,
+    target) {
+        version_id -> Int4,
+        rust_version -> Varchar,
+        target -> Varchar,
+        passed -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+table! {
     categories (id) {
         id -> Int4,
         category -> Varchar,
