@@ -71,6 +71,7 @@ pub struct VersionLinks {
     pub dependencies: String,
     pub version_downloads: String,
     pub authors: String,
+    pub build_info: String,
 }
 
 #[derive(Insertable, AsChangeset)]
@@ -205,6 +206,7 @@ impl Version {
                 version_downloads: format!("/api/v1/crates/{}/{}/downloads",
                                            crate_name, num),
                 authors: format!("/api/v1/crates/{}/{}/authors", crate_name, num),
+                build_info: format!("/api/v1/crates/{}/{}/build_info", crate_name, num),
             },
         }
     }
