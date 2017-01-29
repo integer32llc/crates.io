@@ -35,7 +35,7 @@ use user::RequestUser;
 use util::errors::NotFound;
 use util::{read_le_u32, read_fill};
 use util::{RequestUtils, CargoResult, internal, ChainError, human};
-use version::{EncodableVersion, NewVersion};
+use version::{EncodableVersion, NewVersion, BuildInfo, EncodableMaxBuildInfo};
 use {Model, User, Keyword, Version, Category, Badge, Replica};
 
 #[derive(Clone, Queryable, Identifiable, AsChangeset)]
@@ -90,6 +90,9 @@ pub struct EncodableCrate {
     pub repository: Option<String>,
     pub links: CrateLinks,
     pub exact_match: bool,
+    pub max_build_info_stable: Option<String>,
+    pub max_build_info_beta: Option<String>,
+    pub max_build_info_nightly: Option<String>,
 }
 
 #[derive(RustcEncodable, RustcDecodable)]
@@ -399,19 +402,33 @@ impl Crate {
         parts.next().is_none()
     }
 
-    pub fn minimal_encodable(self,
-                             max_version: semver::Version,
-                             badges: Option<Vec<Badge>>, exact_match: bool) -> EncodableCrate {
-        self.encodable(max_version, None, None, None, badges, exact_match)
+    fn minimal_encodable(self,
+                         max_version: semver::Version,
+                         badges: Option<Vec<Badge>>,
+                         exact_match: bool,
+                         max_build_info: Option<EncodableMaxBuildInfo>)
+                         -> EncodableCrate
+    {
+        self.encodable(
+            max_version,
+            None,
+            None,
+            None,
+            badges,
+            exact_match,
+            max_build_info,
+        )
     }
 
+    #[cfg_attr(feature = "lint", allow(too_many_arguments))]
     pub fn encodable(self,
                      max_version: semver::Version,
                      versions: Option<Vec<i32>>,
                      keywords: Option<&[Keyword]>,
                      categories: Option<&[Category]>,
                      badges: Option<Vec<Badge>>,
-                     exact_match: bool)
+                     exact_match: bool,
+                     max_build_info: Option<EncodableMaxBuildInfo>)
                      -> EncodableCrate {
         let Crate {
             name, created_at, updated_at, downloads, description,
@@ -426,6 +443,8 @@ impl Crate {
         let badges = badges.map(|bs| {
             bs.into_iter().map(|b| b.encodable()).collect()
         });
+        let max_build_info = max_build_info.unwrap_or_else(EncodableMaxBuildInfo::default);
+
         EncodableCrate {
             id: name.clone(),
             name: name.clone(),
@@ -437,6 +456,9 @@ impl Crate {
             categories: category_ids,
             badges: badges,
             max_version: max_version.to_string(),
+            max_build_info_stable: max_build_info.stable,
+            max_build_info_beta: max_build_info.beta,
+            max_build_info_nightly: max_build_info.nightly,
             documentation: documentation,
             homepage: homepage,
             exact_match: exact_match,
@@ -478,7 +500,7 @@ impl Crate {
         let mut ret = rows.iter().map(|r| {
             Model::from_row(&r)
         }).collect::<Vec<Version>>();
-        ret.sort_by(|a, b| b.num.cmp(&a.num));
+        ret.sort_by(Version::semantically_newest_first);
         Ok(ret)
     }
 
@@ -735,15 +757,29 @@ pub fn index(req: &mut Request) -> CargoResult<Response> {
         .load::<Version>(&*conn)?
         .grouped_by(&crates)
         .into_iter()
-        .map(|versions| Version::max(versions.into_iter().map(|v| v.num)));
+        .map(|versions| versions.into_iter().max_by(Version::semantically_newest_first).unwrap())
+        .collect::<Vec<_>>();
 
-    let crates = versions.zip(crates).zip(perfect_matches).map(|((max_version, krate), perfect_match)| {
+    let build_infos = BuildInfo::belonging_to(&versions)
+        .filter(build_info::passed.eq(true))
+        .select(::version::BUILD_INFO_FIELDS)
+        .load::<BuildInfo>(&*conn)?
+        .grouped_by(&versions)
+        .into_iter()
+        .map(BuildInfo::max);
+
+    let crates = versions.into_iter()
+        .zip(crates)
+        .zip(perfect_matches)
+        .zip(build_infos)
+        .map(|(((max_version, krate), perfect_match), build_info)| {
+            let build_info = build_info?;
         // FIXME: If we add crate_id to the Badge enum we can eliminate
         // this N+1
         let badges = badges::table.filter(badges::crate_id.eq(krate.id))
             .load::<Badge>(&*conn)?;
-        Ok(krate.minimal_encodable(max_version, Some(badges), perfect_match))
-    }).collect::<Result<_, ::diesel::result::Error>>()?;
+        Ok(krate.minimal_encodable(max_version.num, Some(badges), perfect_match, Some(build_info.encode())))
+    }).collect::<CargoResult<_>>()?;
 
     #[derive(RustcEncodable)]
     struct R { crates: Vec<EncodableCrate>, meta: Meta }
@@ -774,7 +810,7 @@ pub fn summary(req: &mut Request) -> CargoResult<Response> {
             .map(|versions| Version::max(versions.into_iter().map(|v| v.num)))
             .zip(krates)
             .map(|(max_version, krate)| {
-                 Ok(krate.minimal_encodable(max_version, None, false))
+                 Ok(krate.minimal_encodable(max_version, None, false, None))
             }).collect()
     };
 
@@ -832,7 +868,7 @@ pub fn show(req: &mut Request) -> CargoResult<Response> {
     let krate = Crate::by_name(name).first::<Crate>(&*conn)?;
 
     let mut versions = Version::belonging_to(&krate).load::<Version>(&*conn)?;
-    versions.sort_by(|a, b| b.num.cmp(&a.num));
+    versions.sort_by(Version::semantically_newest_first);
     let ids = versions.iter().map(|v| v.id).collect();
 
     let kws = CrateKeyword::belonging_to(&krate)
@@ -857,7 +893,7 @@ pub fn show(req: &mut Request) -> CargoResult<Response> {
     }
     Ok(req.json(&R {
         krate: krate.clone().encodable(
-            max_version, Some(ids), Some(&kws), Some(&cats), Some(badges), false
+            max_version, Some(ids), Some(&kws), Some(&cats), Some(badges), false, None,
         ),
         versions: versions.into_iter().map(|v| {
             v.encodable(&krate.name)
@@ -977,7 +1013,7 @@ pub fn new(req: &mut Request) -> CargoResult<Response> {
         #[derive(RustcEncodable)]
         struct R<'a> { krate: EncodableCrate, warnings: Warnings<'a> }
         Ok(req.json(&R {
-            krate: krate.minimal_encodable(max_version, None, false),
+            krate: krate.minimal_encodable(max_version, None, false, None),
             warnings: warnings
         }))
     })
@@ -1084,7 +1120,7 @@ pub fn downloads(req: &mut Request) -> CargoResult<Response> {
     let tx = req.tx()?;
     let krate = Crate::find_by_name(tx, crate_name)?;
     let mut versions = krate.versions(tx)?;
-    versions.sort_by(|a, b| b.num.cmp(&a.num));
+    versions.sort_by(Version::semantically_newest_first);
 
 
     let to_show = &versions[..cmp::min(5, versions.len())];

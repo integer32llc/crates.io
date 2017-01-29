@@ -88,12 +88,14 @@ struct NewBuildInfo {
 #[belongs_to(Version)]
 #[table_name="build_info"]
 #[primary_key(version_id, rust_version, target)]
-struct BuildInfo {
+pub struct BuildInfo {
     version_id: i32,
     rust_version: String,
     target: String,
     passed: bool,
 }
+
+pub const BUILD_INFO_FIELDS: (build_info::version_id, build_info::rust_version, build_info::target, build_info::passed) = (build_info::version_id, build_info::rust_version, build_info::target, build_info::passed);
 
 #[derive(RustcEncodable, RustcDecodable, Default)]
 pub struct EncodableBuildInfo {
@@ -149,6 +151,10 @@ impl FromStr for ChannelVersion {
 }
 
 impl Version {
+    pub fn semantically_newest_first(a: &Self, b: &Self) -> ::std::cmp::Ordering {
+        b.num.cmp(&a.num)
+    }
+
     pub fn find_by_num(conn: &GenericConnection,
                        crate_id: i32,
                        num: &semver::Version)
@@ -509,6 +515,78 @@ pub fn downloads(req: &mut Request) -> CargoResult<Response> {
     Ok(req.json(&R{ version_downloads: downloads }))
 }
 
+#[derive(Debug)]
+struct MaxOrNone<T>(Option<T>);
+
+impl<T> MaxOrNone<T>
+    where T: Ord,
+{
+    fn new() -> Self {
+        MaxOrNone(None)
+    }
+
+    fn push(&mut self, value: T) {
+        match self.0 {
+            Some(ref mut old) => {
+                if value.cmp(old) == ::std::cmp::Ordering::Greater {
+                    ::std::mem::replace(old, value);
+                }
+            }
+            None => self.0 = Some(value),
+        }
+    }
+}
+
+pub struct MaxBuildInfo {
+    pub stable: Option<semver::Version>,
+    pub beta: Option<time::Timespec>,
+    pub nightly: Option<time::Timespec>,
+}
+
+impl MaxBuildInfo {
+    pub fn encode(self) -> EncodableMaxBuildInfo {
+        EncodableMaxBuildInfo {
+            stable: self.stable.map(|v| v.to_string()),
+            beta: self.beta.map(::encode_time),
+            nightly: self.nightly.map(::encode_time),
+        }
+    }
+}
+
+#[derive(Debug, Default, RustcEncodable, RustcDecodable)]
+pub struct EncodableMaxBuildInfo {
+    pub stable: Option<String>,
+    pub beta: Option<String>,
+    pub nightly: Option<String>,
+}
+
+impl BuildInfo {
+    pub fn max<I>(build_infos: I) -> CargoResult<MaxBuildInfo>
+        where I: IntoIterator<Item = BuildInfo>
+    {
+        let mut stable = MaxOrNone::new();
+        let mut beta = MaxOrNone::new();
+        let mut nightly = MaxOrNone::new();
+
+        for row in build_infos {
+            let BuildInfo { rust_version, .. } = row;
+            let rust_version: ChannelVersion = rust_version.parse()?;
+
+            match rust_version {
+                ChannelVersion::Stable(semver) => stable.push(semver),
+                ChannelVersion::Beta(date) => beta.push(date),
+                ChannelVersion::Nightly(date) => nightly.push(date),
+            }
+        }
+
+        Ok(MaxBuildInfo {
+            stable: stable.0,
+            beta: beta.0,
+            nightly: nightly.0,
+        })
+    }
+}
+
 /// Handles the `GET /crates/:crate_id/:version/build_info` route.
 pub fn build_info(req: &mut Request) -> CargoResult<Response> {
     let (version, _) = try!(version_and_crate(req));
@@ -516,10 +594,7 @@ pub fn build_info(req: &mut Request) -> CargoResult<Response> {
     let conn = req.db_conn()?;
 
     let build_infos = BuildInfo::belonging_to(&version)
-        .select((build_info::version_id,
-                 build_info::rust_version,
-                 build_info::target,
-                 build_info::passed))
+        .select(BUILD_INFO_FIELDS)
         .load(&*conn)?;
 
     let mut encodable_build_info = EncodableBuildInfo::default();
