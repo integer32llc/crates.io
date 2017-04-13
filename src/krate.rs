@@ -38,7 +38,7 @@ use util::{RequestUtils, CargoResult, internal, ChainError, human};
 use version::{EncodableVersion, NewVersion, BuildInfo, EncodableMaxBuildInfo};
 use {Model, User, Keyword, Version, Category, Badge, Replica};
 
-#[derive(Clone, Queryable, Identifiable, AsChangeset)]
+#[derive(Debug, Clone, Queryable, Identifiable, AsChangeset)]
 pub struct Crate {
     pub id: i32,
     pub name: String,

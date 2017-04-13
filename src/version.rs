@@ -97,7 +97,7 @@ pub struct BuildInfo {
 
 pub const BUILD_INFO_FIELDS: (build_info::version_id, build_info::rust_version, build_info::target, build_info::passed) = (build_info::version_id, build_info::rust_version, build_info::target, build_info::passed);
 
-#[derive(RustcEncodable, RustcDecodable, Default)]
+#[derive(Debug, RustcEncodable, RustcDecodable, Default)]
 pub struct EncodableBuildInfo {
     id: i32,
     pub ordering: HashMap<String, Vec<String>>,

@@ -143,7 +143,7 @@ fn publish_build_info() {
         "/api/v1/crates/publish-build-info/1.0.0/build_info")
         .with_method(Method::Get)));
 
-    #[derive(RustcDecodable)]
+    #[derive(Debug, RustcDecodable)]
     struct R { build_info: EncodableBuildInfo }
 
     let json = ::json::<R>(&mut response);
