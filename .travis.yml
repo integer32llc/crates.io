@@ -14,45 +14,8 @@ before_install:
   - npm install -g yarn
 
 install:
-  - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
   - yarn
   - yarn run bower install
-  - cargo install diesel_cli --debug --no-default-features --features postgres && export PATH=$HOME/.cargo/bin:$PATH
-
-before_script:
-  - diesel database setup
 
 script:
-  - cargo build
-  - cargo test
   - yarn run test
-
-after_success:
-  - travis-cargo coveralls --no-sudo
-
-addons:
-  postgresql: "9.5"
-  apt:
-    sources:
-      - kalakris-cmake
-    packages:
-      - cmake
-      - libcurl4-openssl-dev
-      - libelf-dev
-      - libdw-dev
-
-matrix:
-  include:
-  - rust: nightly-2017-03-04
-    env: CLIPPY=YESPLEASE
-    script:
-    - cargo rustc --lib --features "lint" -- -Zno-trans
-
-env:
-  global:
-    - DATABASE_URL=postgres://postgres:@localhost/cargo_registry_test
-    - TEST_DATABASE_URL=postgres://postgres:@localhost/cargo_registry_test
-
-notifications:
-  email:
-    on_success: never
