@@ -465,12 +465,16 @@ pub fn downloads(req: &mut Request) -> CargoResult<Response> {
     println!("downloads cutoff_end_date = {:?}", cutoff_end_date);
     let cutoff_start_date = cutoff_end_date + Duration::days(-89);
 
-    let downloads = VersionDownload::belonging_to(&version)
+    let downloads_query = VersionDownload::belonging_to(&version)
         .filter(version_downloads::date.between(
             date(cutoff_start_date)..
                 date(cutoff_end_date),
         ))
-        .order(version_downloads::date)
+        .order(version_downloads::date);
+
+    debug_sql!(downloads_query);
+
+    let downloads = downloads_query
         .load(&*conn)?
         .into_iter()
         .map(VersionDownload::encodable)
