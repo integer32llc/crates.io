@@ -967,60 +967,29 @@ fn download() {
     let resp = t_resp!(middle.call(&mut req));
     assert_eq!(resp.status.0, 302);
 
-    req.with_path("/api/v1/crates/foo_download/1.0.0/downloads");
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    assert_eq!(downloads.version_downloads.len(), 1);
-    req.with_path("/api/v1/crates/foo_download/downloads");
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    assert_eq!(downloads.version_downloads.len(), 1);
+    {
+        use cargo_registry::schema::*;
+        use cargo_registry::download::VersionDownload;
 
-    req.with_path("/api/v1/crates/FOO_DOWNLOAD/1.0.0/download");
-    let resp = t_resp!(middle.call(&mut req));
-    assert_eq!(resp.status.0, 302);
-
-    req.with_path("/api/v1/crates/FOO_DOWNLOAD/1.0.0/downloads");
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    assert_eq!(downloads.version_downloads.len(), 1);
-    req.with_path("/api/v1/crates/FOO_DOWNLOAD/downloads");
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    assert_eq!(downloads.version_downloads.len(), 1);
+        let conn = app.diesel_database.get().unwrap();
+        let foo: Vec<_> = version_downloads::table
+            .select(version_downloads::all_columns)
+            .load::<VersionDownload>(&*conn)
+            .unwrap();
+        println!("{:?}", foo);
+    }
 
     let yesterday = now_utc() + Duration::days(-1);
+    println!("yesterday = {:?}", yesterday);
     req.with_path("/api/v1/crates/FOO_DOWNLOAD/1.0.0/downloads");
+    let yesterday_formatted = strftime("%Y-%m-%d", &yesterday).unwrap();
+    println!("yesterday_formatted = {:?}", yesterday_formatted);
     req.with_query(
-        &("before_date=".to_string() + &strftime("%Y-%m-%d", &yesterday).unwrap()),
+        &("before_date=".to_string() + &yesterday_formatted),
     );
     let mut resp = ok_resp!(middle.call(&mut req));
     let downloads = ::json::<Downloads>(&mut resp);
     assert_eq!(downloads.version_downloads.len(), 0);
-    req.with_path("/api/v1/crates/FOO_DOWNLOAD/downloads");
-    req.with_query(
-        &("before_date=".to_string() + &strftime("%Y-%m-%d", &yesterday).unwrap()),
-    );
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    // crate/downloads always returns the last 90 days and ignores date params
-    assert_eq!(downloads.version_downloads.len(), 1);
-
-    let tomorrow = now_utc() + Duration::days(1);
-    req.with_path("/api/v1/crates/FOO_DOWNLOAD/1.0.0/downloads");
-    req.with_query(
-        &("before_date=".to_string() + &strftime("%Y-%m-%d", &tomorrow).unwrap()),
-    );
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    assert_eq!(downloads.version_downloads.len(), 1);
-    req.with_path("/api/v1/crates/FOO_DOWNLOAD/downloads");
-    req.with_query(
-        &("before_date=".to_string() + &strftime("%Y-%m-%d", &tomorrow).unwrap()),
-    );
-    let mut resp = ok_resp!(middle.call(&mut req));
-    let downloads = ::json::<Downloads>(&mut resp);
-    assert_eq!(downloads.version_downloads.len(), 1);
 }
 
 #[test]

@@ -455,11 +455,14 @@ pub fn downloads(req: &mut Request) -> CargoResult<Response> {
     use diesel::expression::dsl::date;
     let (version, _) = version_and_crate(req)?;
     let conn = req.db_conn()?;
-    let cutoff_end_date = req.query()
+    let before_date = req.query()
         .get("before_date")
-        .and_then(|d| strptime(d, "%Y-%m-%d").ok())
+        .and_then(|d| strptime(d, "%Y-%m-%d").ok());
+    println!("downloads before_date = {:?}", before_date);
+    let cutoff_end_date = before_date
         .unwrap_or_else(now_utc)
         .to_timespec();
+    println!("downloads cutoff_end_date = {:?}", cutoff_end_date);
     let cutoff_start_date = cutoff_end_date + Duration::days(-89);
 
     let downloads = VersionDownload::belonging_to(&version)
