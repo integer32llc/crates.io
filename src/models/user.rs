@@ -19,6 +19,7 @@ pub struct User {
     pub name: Option<String>,
     pub gh_avatar: Option<String>,
     pub gh_id: i32,
+    pub disabled: bool,
 }
 
 #[derive(Insertable, Debug)]

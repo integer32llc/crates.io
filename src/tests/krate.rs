@@ -5,7 +5,7 @@ use crate::{
 };
 use cargo_registry::{
     models::{krate::MAX_NAME_LENGTH, Category, Crate},
-    schema::{api_tokens, crates, emails, metadata, versions, versions_published_by},
+    schema::{api_tokens, crates, emails, metadata, users, versions, versions_published_by},
     views::{
         EncodableCategory, EncodableCrate, EncodableDependency, EncodableKeyword, EncodableVersion,
         EncodableVersionDownload,
@@ -630,6 +630,29 @@ fn new_wrong_token() {
         json.errors[0]
             .detail
             .contains("must be logged in to perform that action"),
+        "{:?}",
+        json.errors
+    );
+}
+
+#[test]
+fn publish_with_disabled_account_is_rejected() {
+    let (app, _, _, token) = TestApp::init().with_token();
+
+    // Disable this user's account
+    app.db(|conn| {
+        diesel::update(users::table)
+            .set(users::disabled.eq(true))
+            .execute(conn)
+            .unwrap();
+    });
+
+    let crate_to_publish = PublishBuilder::new("foo");
+    let json = token.enqueue_publish(crate_to_publish).bad_with_status(200);
+    assert!(
+        json.errors[0].detail.contains(
+            "Your account has been disabled. Please contact help@crates.io with any questions."
+        ),
         "{:?}",
         json.errors
     );
@@ -1420,6 +1443,26 @@ fn yank() {
     assert!(!crates[0].yanked.unwrap());
 
     let json = anon.show_version("fyk", "1.0.0");
+    assert!(!json.version.yanked);
+}
+
+#[test]
+fn yank_from_a_disabled_account_isnt_allowed() {
+    let (app, anon, user, token) = TestApp::full().with_token();
+    let user = user.as_model();
+    app.db(|conn| {
+        CrateBuilder::new("foo_disabled", user.id)
+            .version("1.0.0")
+            .expect_build(conn);
+    });
+
+    let json = token.yank("foo_disabled", "1.0.0").bad_with_status(200);
+    assert_eq!(
+        json.errors[0].detail,
+        "Your account has been disabled. Please contact help@crates.io with any questions."
+    );
+
+    let json = anon.show_version("foo_disabled", "1.0.0");
     assert!(!json.version.yanked);
 }
 

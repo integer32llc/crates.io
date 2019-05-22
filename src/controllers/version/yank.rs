@@ -30,8 +30,16 @@ pub fn unyank(req: &mut dyn Request) -> CargoResult<Response> {
 fn modify_yank(req: &mut dyn Request, yanked: bool) -> CargoResult<Response> {
     let (version, krate) = version_and_crate(req)?;
     let user = req.user()?;
+
+    if user.disabled {
+        return Err(human(
+            "Your account has been disabled. Please contact help@crates.io with any questions.",
+        ));
+    }
+
     let conn = req.db_conn()?;
     let owners = krate.owners(&conn)?;
+
     if user.rights(req.app(), &owners)? < Rights::Publish {
         return Err(human("must already be an owner to yank or unyank"));
     }

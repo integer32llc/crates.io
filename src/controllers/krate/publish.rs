@@ -39,6 +39,12 @@ pub fn publish(req: &mut dyn Request) -> CargoResult<Response> {
 
     let (new_crate, user) = parse_new_headers(req)?;
 
+    if user.disabled {
+        return Err(human(
+            "Your account has been disabled. Please contact help@crates.io with any questions.",
+        ));
+    }
+
     let name = &*new_crate.name;
     let vers = &*new_crate.vers;
     let links = new_crate.links.clone();
