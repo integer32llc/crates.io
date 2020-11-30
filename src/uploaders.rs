@@ -209,8 +209,6 @@ fn verify_tarball(
             cargo_err("uploaded tarball is malformed or too large when decompressed")
         })?;
 
-        // TODO: The prefix here isn't exactly the crate name anymore. What does this do to the security check below?
-
         // Verify that all entries actually start with `$name-$vers/`.
         // Historically Cargo didn't verify this on extraction so you could
         // upload a tarball that contains both `foo-0.1.0/` source code as well
