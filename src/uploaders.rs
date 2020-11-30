@@ -78,7 +78,6 @@ impl Uploader {
     /// Returns the internal path of an uploaded crate's version archive.
     fn crate_path(name: &str, version: &str) -> String {
         // No slash in front so we can use join
-        // TODO: Should I url-encode the sections here?
         format!(
             "crates/{}/{}-{}.crate",
             Crate::namespace(name),
