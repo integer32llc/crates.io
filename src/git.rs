@@ -178,12 +178,27 @@ impl Repository {
 
     fn relative_index_file(&self, name: &str) -> PathBuf {
         let name = name.to_lowercase();
-        match name.len() {
-            1 => Path::new("1").join(&name),
-            2 => Path::new("2").join(&name),
-            3 => Path::new("3").join(&name[..1]).join(&name),
-            _ => Path::new(&name[0..2]).join(&name[2..4]).join(&name),
+        let namespace = crate::models::krate::Crate::namespace(&name);
+        let mut file_path: PathBuf = match namespace.len() {
+            1 => Path::new("1").to_path_buf(),
+            2 => Path::new("2").to_path_buf(),
+            3 => Path::new("3").join(&name[..1]),
+            _ => Path::new(&name[0..2]).join(&name[2..4]),
+        };
+
+        let name_parts = name
+            .split(crate::models::krate::SUBCRATE_DELIMETER)
+            .collect::<Vec<_>>();
+
+        for (i, part_name) in name_parts.iter().enumerate() {
+            if i == name_parts.len() - 1 {
+                file_path.push(part_name);
+            } else {
+                file_path.push(format!("{}@", part_name));
+            }
         }
+
+        file_path
     }
 
     fn perform_commit_and_push(&self, msg: &str, modified_file: &Path) -> Result<(), PerformError> {
