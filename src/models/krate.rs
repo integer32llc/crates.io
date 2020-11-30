@@ -78,6 +78,8 @@ pub const ALL_COLUMNS: AllColumns = (
 
 pub const MAX_NAME_LENGTH: usize = 64;
 pub const SUBCRATE_DELIMETER: &str = "/";
+/// This is used in contexts where the full subcrate name needs to be a valid filename, like the crate tarball.
+pub const SUBCRATE_DELIMETER_FILENAME_REPLACEMENT: &str = "_";
 pub const MAX_SUBCRATE_DEPTH: Option<usize> = Some(1);
 
 type CanonCrateName<T> = self::canon_crate_name::HelperType<T>;
@@ -206,6 +208,11 @@ impl<'a> NewCrate<'a> {
 }
 
 impl Crate {
+    pub fn file_safe_name(&self) -> String {
+        self.name
+            .replace(SUBCRATE_DELIMETER, SUBCRATE_DELIMETER_FILENAME_REPLACEMENT)
+    }
+
     /// SQL filter based on whether the crate's name loosely matches the given
     /// string.
     ///

@@ -78,6 +78,7 @@ impl Uploader {
     /// Returns the internal path of an uploaded crate's version archive.
     fn crate_path(name: &str, version: &str) -> String {
         // No slash in front so we can use join
+        // TODO: Should I url-encode the sections here?
         format!("crates/{}/{}-{}.crate", name, name, version)
     }
 
@@ -198,11 +199,13 @@ fn verify_tarball(
 
     // Use this I/O object now to take a peek inside
     let mut archive = tar::Archive::new(decoder);
-    let prefix = format!("{}-{}", krate.name, vers);
+    let prefix = format!("{}-{}", krate.file_safe_name(), vers);
     for entry in archive.entries()? {
         let entry = entry.chain_error(|| {
             cargo_err("uploaded tarball is malformed or too large when decompressed")
         })?;
+
+        // TODO: The prefix here isn't exactly the crate name anymore. What does this do to the security check below?
 
         // Verify that all entries actually start with `$name-$vers/`.
         // Historically Cargo didn't verify this on extraction so you could
