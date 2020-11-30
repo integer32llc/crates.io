@@ -128,6 +128,17 @@ fn new_krate() {
 }
 
 #[test]
+fn new_subkrate() {
+    let (_, _, user) = TestApp::full().with_user();
+
+    let crate_to_publish = PublishBuilder::new("foo_new/bar_new").version("1.0.0");
+    let json: GoodCrate = user.enqueue_publish(crate_to_publish).good();
+
+    assert_eq!(json.krate.name, "foo_new/bar_new");
+    assert_eq!(json.krate.max_version, "1.0.0");
+}
+
+#[test]
 fn new_krate_with_token() {
     let (_, _, _, token) = TestApp::full().with_token();
 

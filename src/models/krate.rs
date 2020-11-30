@@ -77,6 +77,8 @@ pub const ALL_COLUMNS: AllColumns = (
 );
 
 pub const MAX_NAME_LENGTH: usize = 64;
+pub const SUBCRATE_DELIMETER: &str = "/";
+pub const MAX_SUBCRATE_DEPTH: Option<usize> = Some(1);
 
 type CanonCrateName<T> = self::canon_crate_name::HelperType<T>;
 type All = diesel::dsl::Select<crates::table, AllColumns>;
@@ -255,9 +257,16 @@ impl Crate {
             })
     }
 
-    pub fn valid_name(name: &str) -> bool {
-        let under_max_length = name.chars().take(MAX_NAME_LENGTH + 1).count() <= MAX_NAME_LENGTH;
-        Crate::valid_ident(name) && under_max_length
+    pub fn valid_name(full_name: &str) -> bool {
+        let sections_valid = full_name.split(SUBCRATE_DELIMETER).all(|name| {
+            let under_max_length =
+                name.chars().take(MAX_NAME_LENGTH + 1).count() <= MAX_NAME_LENGTH;
+            Crate::valid_ident(name) && under_max_length
+        });
+        let valid_number_of_sections = MAX_SUBCRATE_DEPTH.map_or(true, |depth| {
+            full_name.matches(SUBCRATE_DELIMETER).count() <= depth
+        });
+        sections_valid && valid_number_of_sections
     }
 
     fn valid_ident(name: &str) -> bool {
