@@ -208,9 +208,12 @@ impl<'a> NewCrate<'a> {
 }
 
 impl Crate {
-    pub fn file_safe_name(&self) -> String {
-        self.name
-            .replace(SUBCRATE_DELIMETER, SUBCRATE_DELIMETER_FILENAME_REPLACEMENT)
+    pub fn namespace(name: &str) -> &str {
+        name.split(SUBCRATE_DELIMETER).next().unwrap()
+    }
+
+    pub fn file_safe_name(name: &str) -> String {
+        name.replace(SUBCRATE_DELIMETER, SUBCRATE_DELIMETER_FILENAME_REPLACEMENT)
     }
 
     /// SQL filter based on whether the crate's name loosely matches the given

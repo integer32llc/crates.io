@@ -79,7 +79,12 @@ impl Uploader {
     fn crate_path(name: &str, version: &str) -> String {
         // No slash in front so we can use join
         // TODO: Should I url-encode the sections here?
-        format!("crates/{}/{}-{}.crate", name, name, version)
+        format!(
+            "crates/{}/{}-{}.crate",
+            Crate::namespace(name),
+            Crate::file_safe_name(name),
+            version
+        )
     }
 
     /// Returns the internal path of an uploaded crate's version readme.
@@ -199,7 +204,7 @@ fn verify_tarball(
 
     // Use this I/O object now to take a peek inside
     let mut archive = tar::Archive::new(decoder);
-    let prefix = format!("{}-{}", krate.file_safe_name(), vers);
+    let prefix = format!("{}-{}", Crate::file_safe_name(&krate.name), vers);
     for entry in archive.entries()? {
         let entry = entry.chain_error(|| {
             cargo_err("uploaded tarball is malformed or too large when decompressed")

@@ -1,7 +1,7 @@
 [
   {
     "request": {
-      "uri": "http://alexcrichton-test.s3.amazonaws.com/crates/foo_new/bar_new/foo_new/bar_new-1.0.0.crate",
+      "uri": "http://alexcrichton-test.s3.amazonaws.com/crates/foo_new/foo_new_bar_new-1.0.0.crate",
       "method": "PUT",
       "headers": [
         [
