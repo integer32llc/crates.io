@@ -1,6 +1,7 @@
 import Model, { attr, hasMany } from '@ember-data/model';
 
 import { memberAction } from 'ember-api-actions';
+import sanitizeSubcrateIdForUrl from '../utils/subcrate';
 
 export default class Crate extends Model {
   @attr name;
@@ -29,6 +30,10 @@ export default class Crate extends Model {
   @hasMany('keywords', { async: true }) keywords;
   @hasMany('categories', { async: true }) categories;
   @hasMany('dependency', { async: true }) reverse_dependencies;
+
+  get fileSafeCrateId() {
+    return sanitizeSubcrateIdForUrl(this.id);
+  }
 
   follow = memberAction({ type: 'PUT', path: 'follow' });
   unfollow = memberAction({ type: 'DELETE', path: 'follow' });

@@ -1,7 +1,7 @@
 <div local-class="crate-row" data-test-crate-row ...attributes>
   <div local-class="description-box">
     <div>
-      {{#let (link "crate" @crate.id) as |l|}}
+      {{#let (link "crate" @crate.fileSafeCrateId) as |l|}}
         <a href={{l.url}} local-class="name" data-test-crate-link {{on "click" l.transitionTo}}>
           {{@crate.name}}
         </a>

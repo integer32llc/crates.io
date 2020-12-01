@@ -73,7 +73,7 @@
           {{#each this.model.new_crates as |crate index|}}
             <li>
               <FrontPageList::Item
-                @link={{link "crate" crate.id}}
+                @link={{link "crate" crate.fileSafeCrateId}}
                 @title={{crate.name}}
                 @subtitle="v{{crate.newest_version}}"
                 data-test-crate-link={{index}}
@@ -97,7 +97,7 @@
           {{#each this.model.most_downloaded as |crate index|}}
             <li>
               <FrontPageList::Item
-                @link={{link "crate" crate.id}}
+                @link={{link "crate" crate.fileSafeCrateId}}
                 @title={{crate.name}}
                 data-test-crate-link={{index}}
               />
@@ -120,7 +120,7 @@
           {{#each this.model.just_updated as |crate index|}}
             <li>
               <FrontPageList::Item
-                @link={{link "crate" crate.id}}
+                @link={{link "crate" crate.fileSafeCrateId}}
                 @title={{crate.name}}
                 @subtitle="v{{crate.newest_version}}"
                 data-test-crate-link={{index}}
@@ -144,7 +144,7 @@
           {{#each this.model.most_recently_downloaded as |crate index|}}
             <li>
               <FrontPageList::Item
-                @link={{link "crate" crate.id}}
+                @link={{link "crate" crate.fileSafeCrateId}}
                 @title={{crate.name}}
                 data-test-crate-link={{index}}
               />

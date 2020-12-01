@@ -1,4 +1,4 @@
-<LinkTo @route="crate" @model={{@dep.crate_id}}>
+<LinkTo @route="crate" @model={{@dep.fileSafeCrateId}}>
   {{ @dep.crate_id }} {{ format-req @dep.req }}
 </LinkTo>
 {{#if @dep.optional}}
