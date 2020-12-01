@@ -88,7 +88,12 @@ impl Uploader {
 
     /// Returns the internal path of an uploaded crate's version readme.
     fn readme_path(name: &str, version: &str) -> String {
-        format!("readmes/{}/{}-{}.html", name, name, version)
+        format!(
+            "readmes/{}/{}-{}.html",
+            Crate::namespace(name),
+            Crate::file_safe_name(name),
+            version
+        )
     }
 
     /// Uploads a file using the configured uploader (either `S3`, `Local`).

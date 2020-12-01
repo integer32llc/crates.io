@@ -2,6 +2,7 @@
 
 use diesel::associations::Identifiable;
 
+use super::extract_crate_name;
 use crate::controllers::frontend_prelude::*;
 use crate::db::DieselPooledConn;
 use crate::models::{Crate, Follow};
@@ -12,8 +13,8 @@ fn follow_target(
     conn: &DieselPooledConn<'_>,
     user_id: i32,
 ) -> AppResult<Follow> {
-    let crate_name = &req.params()["crate_id"];
-    let crate_id = Crate::by_name(crate_name)
+    let crate_name = extract_crate_name(req);
+    let crate_id = Crate::by_name(&crate_name)
         .select(crates::id)
         .first(&**conn)?;
     Ok(Follow { user_id, crate_id })

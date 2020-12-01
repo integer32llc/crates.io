@@ -7,6 +7,7 @@ import { task } from 'ember-concurrency';
 import moment from 'moment';
 
 import ajax from '../../utils/ajax';
+import sanitizeSubcrateIdForUrl from '../../utils/subcrate';
 
 const NUM_VERSIONS = 5;
 
@@ -137,7 +138,7 @@ export default class CrateVersionController extends Controller {
     if (this.loadDocsBuildsTask.lastSuccessful) {
       let docsBuilds = this.loadDocsBuildsTask.lastSuccessful.value;
       if (docsBuilds.length > 0 && docsBuilds[0].build_status === true) {
-        return `https://docs.rs/${this.crate.name}/${this.currentVersion.num}`;
+        return `https://docs.rs/${sanitizeSubcrateIdForUrl(this.crate.name)}/${this.currentVersion.num}`;
       }
     }
 
@@ -150,7 +151,7 @@ export default class CrateVersionController extends Controller {
   }
 
   @task(function* () {
-    return yield ajax(`https://docs.rs/crate/${this.crate.name}/${this.currentVersion.num}/builds.json`);
+    return yield ajax(`https://docs.rs/crate/${sanitizeSubcrateIdForUrl(this.crate.name)}/${this.currentVersion.num}/builds.json`);
   })
   loadDocsBuildsTask;
 }

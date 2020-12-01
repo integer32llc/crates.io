@@ -63,6 +63,7 @@ impl Version {
         published_by: Option<User>,
         audit_actions: Vec<(VersionOwnerAction, User)>,
     ) -> EncodableVersion {
+        let file_safe_crate_name = Crate::file_safe_name(crate_name);
         let Version {
             id,
             num,
@@ -77,8 +78,8 @@ impl Version {
         } = self;
         let num = num.to_string();
         EncodableVersion {
-            dl_path: format!("/api/v1/crates/{}/{}/download", crate_name, num),
-            readme_path: format!("/api/v1/crates/{}/{}/readme", crate_name, num),
+            dl_path: format!("/api/v1/crates/{}/{}/download", file_safe_crate_name, num),
+            readme_path: format!("/api/v1/crates/{}/{}/readme", file_safe_crate_name, num),
             num: num.clone(),
             id,
             krate: crate_name.to_string(),
@@ -89,9 +90,15 @@ impl Version {
             yanked,
             license,
             links: EncodableVersionLinks {
-                dependencies: format!("/api/v1/crates/{}/{}/dependencies", crate_name, num),
-                version_downloads: format!("/api/v1/crates/{}/{}/downloads", crate_name, num),
-                authors: format!("/api/v1/crates/{}/{}/authors", crate_name, num),
+                dependencies: format!(
+                    "/api/v1/crates/{}/{}/dependencies",
+                    file_safe_crate_name, num
+                ),
+                version_downloads: format!(
+                    "/api/v1/crates/{}/{}/downloads",
+                    file_safe_crate_name, num
+                ),
+                authors: format!("/api/v1/crates/{}/{}/authors", file_safe_crate_name, num),
             },
             crate_size,
             published_by: published_by.map(User::encodable_public),

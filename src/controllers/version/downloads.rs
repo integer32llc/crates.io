@@ -15,10 +15,10 @@ use super::{extract_crate_name, extract_semver};
 /// Handles the `GET /crates/:crate_id/:version/download` route.
 /// This returns a URL to the location where the crate is stored.
 pub fn download(req: &mut dyn RequestExt) -> EndpointResult {
-    let crate_name = &req.params()["crate_id"];
+    let crate_name = extract_crate_name(req);
     let version = &req.params()["version"];
 
-    let (crate_name, was_counted) = increment_download_counts(req, crate_name, version)?;
+    let (crate_name, was_counted) = increment_download_counts(req, &crate_name, version)?;
 
     let redirect_url = req
         .app()
@@ -79,7 +79,7 @@ pub fn downloads(req: &mut dyn RequestExt) -> EndpointResult {
     let semver = extract_semver(req)?;
 
     let conn = req.db_read_only()?;
-    let krate: Crate = Crate::by_name(crate_name).first(&*conn)?;
+    let krate: Crate = Crate::by_name(&crate_name).first(&*conn)?;
     let version = krate.find_version(&conn, semver)?;
 
     let cutoff_end_date = req

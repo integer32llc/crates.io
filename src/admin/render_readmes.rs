@@ -119,7 +119,12 @@ pub fn run(opts: Opts) {
                 let readme = readme.unwrap();
                 let content_length = readme.len() as u64;
                 let content = std::io::Cursor::new(readme);
-                let readme_path = format!("readmes/{0}/{0}-{1}.html", krate_name, version.num);
+                let readme_path = format!(
+                    "readmes/{}/{}-{}.html",
+                    crate::models::krate::Crate::namespace(&krate_name),
+                    crate::models::krate::Crate::file_safe_name(&krate_name),
+                    version.num
+                );
                 let mut extra_headers = header::HeaderMap::new();
                 extra_headers.insert(header::CACHE_CONTROL, CACHE_CONTROL_README.parse().unwrap());
                 config
@@ -156,6 +161,7 @@ fn get_readme(
     version: &Version,
     krate_name: &str,
 ) -> Option<String> {
+    let file_safe_crate_name = crate::models::krate::Crate::file_safe_name(&krate_name);
     let location = config
         .uploader
         .crate_location(krate_name, &version.num.to_string());
@@ -190,7 +196,7 @@ fn get_readme(
         )
     });
     let manifest: Manifest = {
-        let path = format!("{}-{}/Cargo.toml", krate_name, version.num);
+        let path = format!("{}-{}/Cargo.toml", file_safe_crate_name, version.num);
         let contents = find_file_by_path(&mut entries, Path::new(&path), version, krate_name);
         toml::from_str(&contents).unwrap_or_else(|_| {
             panic!(
@@ -203,7 +209,7 @@ fn get_readme(
     let rendered = {
         let path = format!(
             "{}-{}/{}",
-            krate_name, version.num, manifest.package.readme?
+            file_safe_crate_name, version.num, manifest.package.readme?
         );
         let contents = find_file_by_path(&mut entries, Path::new(&path), version, krate_name);
         readme_to_html(

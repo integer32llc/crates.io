@@ -6,6 +6,7 @@
 
 use crate::controllers::frontend_prelude::*;
 
+use super::extract_crate_name;
 use crate::models::{
     Category, Crate, CrateCategory, CrateKeyword, CrateVersions, Keyword, RecentCrateDownloads,
     User, Version, VersionOwnerAction,
@@ -112,9 +113,9 @@ pub fn summary(req: &mut dyn RequestExt) -> EndpointResult {
 
 /// Handles the `GET /crates/:crate_id` route.
 pub fn show(req: &mut dyn RequestExt) -> EndpointResult {
-    let name = &req.params()["crate_id"];
+    let name = extract_crate_name(req);
     let conn = req.db_read_only()?;
-    let krate: Crate = Crate::by_name(name).first(&*conn)?;
+    let krate: Crate = Crate::by_name(&name).first(&*conn)?;
 
     let mut versions_and_publishers: Vec<(Version, Option<User>)> = krate
         .all_versions()
@@ -184,14 +185,14 @@ pub fn show(req: &mut dyn RequestExt) -> EndpointResult {
 
 /// Handles the `GET /crates/:crate_id/:version/readme` route.
 pub fn readme(req: &mut dyn RequestExt) -> EndpointResult {
-    let crate_name = &req.params()["crate_id"];
+    let crate_name = extract_crate_name(req);
     let version = &req.params()["version"];
 
     let redirect_url = req
         .app()
         .config
         .uploader
-        .readme_location(crate_name, version);
+        .readme_location(&crate_name, version);
 
     if req.wants_json() {
         #[derive(Serialize)]
@@ -208,9 +209,9 @@ pub fn readme(req: &mut dyn RequestExt) -> EndpointResult {
 // FIXME: Not sure why this is necessary since /crates/:crate_id returns
 // this information already, but ember is definitely requesting it
 pub fn versions(req: &mut dyn RequestExt) -> EndpointResult {
-    let crate_name = &req.params()["crate_id"];
+    let crate_name = extract_crate_name(req);
     let conn = req.db_read_only()?;
-    let krate: Crate = Crate::by_name(crate_name).first(&*conn)?;
+    let krate: Crate = Crate::by_name(&crate_name).first(&*conn)?;
     let mut versions_and_publishers: Vec<(Version, Option<User>)> = krate
         .all_versions()
         .left_outer_join(users::table)
@@ -225,7 +226,7 @@ pub fn versions(req: &mut dyn RequestExt) -> EndpointResult {
     let versions = versions_and_publishers
         .into_iter()
         .zip(VersionOwnerAction::for_versions(&conn, &versions)?.into_iter())
-        .map(|((v, pb), aas)| v.encodable(crate_name, pb, aas))
+        .map(|((v, pb), aas)| v.encodable(&crate_name, pb, aas))
         .collect();
 
     #[derive(Serialize)]
@@ -239,9 +240,9 @@ pub fn versions(req: &mut dyn RequestExt) -> EndpointResult {
 pub fn reverse_dependencies(req: &mut dyn RequestExt) -> EndpointResult {
     use diesel::dsl::any;
 
-    let name = &req.params()["crate_id"];
+    let name = extract_crate_name(req);
     let conn = req.db_read_only()?;
-    let krate: Crate = Crate::by_name(name).first(&*conn)?;
+    let krate: Crate = Crate::by_name(&name).first(&*conn)?;
     let (rev_deps, total) = krate.reverse_dependencies(&*conn, &req.query())?;
     let rev_deps: Vec<_> = rev_deps
         .into_iter()

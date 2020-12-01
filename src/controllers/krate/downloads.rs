@@ -7,6 +7,7 @@ use std::cmp;
 
 use crate::controllers::frontend_prelude::*;
 
+use super::extract_crate_name;
 use crate::models::{Crate, CrateVersions, Version, VersionDownload};
 use crate::schema::version_downloads;
 use crate::views::EncodableVersionDownload;
@@ -18,9 +19,9 @@ pub fn downloads(req: &mut dyn RequestExt) -> EndpointResult {
     use diesel::dsl::*;
     use diesel::sql_types::BigInt;
 
-    let crate_name = &req.params()["crate_id"];
+    let crate_name = extract_crate_name(req);
     let conn = req.db_read_only()?;
-    let krate: Crate = Crate::by_name(crate_name).first(&*conn)?;
+    let krate: Crate = Crate::by_name(&crate_name).first(&*conn)?;
 
     let mut versions: Vec<Version> = krate.all_versions().load(&*conn)?;
     versions.sort_by(|a, b| b.num.cmp(&a.num));

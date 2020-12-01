@@ -79,7 +79,7 @@ pub const ALL_COLUMNS: AllColumns = (
 pub const MAX_NAME_LENGTH: usize = 64;
 pub const SUBCRATE_DELIMETER: &str = "/";
 /// This is used in contexts where the full subcrate name needs to be a valid filename, like the crate tarball.
-pub const SUBCRATE_DELIMETER_FILENAME_REPLACEMENT: &str = "_";
+pub const SUBCRATE_DELIMETER_FILENAME_REPLACEMENT: &str = "~";
 pub const MAX_SUBCRATE_DEPTH: Option<usize> = Some(1);
 
 type CanonCrateName<T> = self::canon_crate_name::HelperType<T>;
@@ -214,6 +214,10 @@ impl Crate {
 
     pub fn file_safe_name(name: &str) -> String {
         name.replace(SUBCRATE_DELIMETER, SUBCRATE_DELIMETER_FILENAME_REPLACEMENT)
+    }
+
+    pub fn decode_file_safe_name(file_safe_name: &str) -> String {
+        file_safe_name.replace(SUBCRATE_DELIMETER_FILENAME_REPLACEMENT, SUBCRATE_DELIMETER)
     }
 
     /// SQL filter based on whether the crate's name loosely matches the given
@@ -355,9 +359,10 @@ impl Crate {
             repository,
             ..
         } = self;
+        let file_safe_name = Crate::file_safe_name(&name);
         let versions_link = match versions {
             Some(..) => None,
-            None => Some(format!("/api/v1/crates/{}/versions", name)),
+            None => Some(format!("/api/v1/crates/{}/versions", file_safe_name)),
         };
         let keyword_ids = keywords.map(|kws| kws.iter().map(|kw| kw.keyword.clone()).collect());
         let category_ids = categories.map(|cats| cats.iter().map(|cat| cat.slug.clone()).collect());
@@ -383,12 +388,15 @@ impl Crate {
             description,
             repository,
             links: EncodableCrateLinks {
-                version_downloads: format!("/api/v1/crates/{}/downloads", name),
+                version_downloads: format!("/api/v1/crates/{}/downloads", file_safe_name),
                 versions: versions_link,
-                owners: Some(format!("/api/v1/crates/{}/owners", name)),
-                owner_team: Some(format!("/api/v1/crates/{}/owner_team", name)),
-                owner_user: Some(format!("/api/v1/crates/{}/owner_user", name)),
-                reverse_dependencies: format!("/api/v1/crates/{}/reverse_dependencies", name),
+                owners: Some(format!("/api/v1/crates/{}/owners", file_safe_name)),
+                owner_team: Some(format!("/api/v1/crates/{}/owner_team", file_safe_name)),
+                owner_user: Some(format!("/api/v1/crates/{}/owner_user", file_safe_name)),
+                reverse_dependencies: format!(
+                    "/api/v1/crates/{}/reverse_dependencies",
+                    file_safe_name
+                ),
             },
         }
     }
