@@ -1,3 +1,7 @@
 export default function sanitizeSubcrateIdForUrl(id) {
-  return id.replaceAll("/", "~");
+    if (id) {
+        return id.replaceAll("/", "~");
+    } else {
+        return id;
+    }
 }
