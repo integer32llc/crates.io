@@ -4,6 +4,7 @@ import semverSort from 'semver/functions/rsort';
 
 import { compareIsoDates } from '../route-handlers/-utils';
 import BaseSerializer from './application';
+import { sanitizeSubcrateIdForUrl } from '../../utils/subcrate';
 
 export default BaseSerializer.extend({
   attrs: [
@@ -27,11 +28,11 @@ export default BaseSerializer.extend({
 
   links(crate) {
     return {
-      owner_user: `/api/v1/crates/${crate.id}/owner_user`,
-      owner_team: `/api/v1/crates/${crate.id}/owner_team`,
-      reverse_dependencies: `/api/v1/crates/${crate.id}/reverse_dependencies`,
-      version_downloads: `/api/v1/crates/${crate.id}/downloads`,
-      versions: `/api/v1/crates/${crate.id}/versions`,
+      owner_user: `/api/v1/crates/${sanitizeSubcrateIdForUrl(crate.id)}/owner_user`,
+      owner_team: `/api/v1/crates/${sanitizeSubcrateIdForUrl(crate.id)}/owner_team`,
+      reverse_dependencies: `/api/v1/crates/${sanitizeSubcrateIdForUrl(crate.id)}/reverse_dependencies`,
+      version_downloads: `/api/v1/crates/${sanitizeSubcrateIdForUrl(crate.id)}/downloads`,
+      versions: `/api/v1/crates/${sanitizeSubcrateIdForUrl(crate.id)}/versions`,
     };
   },
 

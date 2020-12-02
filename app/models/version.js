@@ -2,7 +2,7 @@ import Model, { attr, belongsTo, hasMany } from '@ember-data/model';
 import { computed } from '@ember/object';
 import { alias } from '@ember/object/computed';
 import { task } from 'ember-concurrency';
-import sanitizeSubcrateIdForUrl from '../utils/subcrate';
+import { sanitizeSubcrateIdForUrl } from '../utils/subcrate';
 
 export default class Version extends Model {
   @attr num;
@@ -68,7 +68,7 @@ export default class Version extends Model {
   loadReadmeTask;
 
   @(task(function* () {
-    let response = yield fetch(`/api/v1/crates/${this.crate.id}/${this.num}/yank`, { method: 'DELETE' });
+    let response = yield fetch(`/api/v1/crates/${this.fileSafeCrateId}/${this.num}/yank`, { method: 'DELETE' });
     if (!response.ok) {
       throw new Error(`Yank request for ${this.crateName} v${this.num} failed`);
     }
@@ -79,7 +79,7 @@ export default class Version extends Model {
   yankTask;
 
   @(task(function* () {
-    let response = yield fetch(`/api/v1/crates/${this.crate.id}/${this.num}/unyank`, { method: 'PUT' });
+    let response = yield fetch(`/api/v1/crates/${this.fileSafeCrateId}/${this.num}/unyank`, { method: 'PUT' });
     if (!response.ok) {
       throw new Error(`Unyank request for ${this.crateName} v${this.num} failed`);
     }

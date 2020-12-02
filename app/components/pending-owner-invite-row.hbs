@@ -1,18 +1,18 @@
 {{#if this.isAccepted }}
   <p data-test-accepted-message ...attributes>
     Success! You've been added as an owner of crate
-    <LinkTo @route="crate" @model={{@invite.crate_name}}>{{@invite.crate_name}}</LinkTo>.
+    <LinkTo @route="crate" @model={{@invite.fileSafeCrateId}}>{{@invite.crate_name}}</LinkTo>.
   </p>
 {{else if this.isDeclined}}
   <p data-test-declined-message ...attributes>
     Declined. You have not been added as an owner of crate
-    <LinkTo @route="crate" @model={{@invite.crate_name}}>{{@invite.crate_name}}</LinkTo>.
+    <LinkTo @route="crate" @model={{@invite.fileSafeCrateId}}>{{@invite.crate_name}}</LinkTo>.
   </p>
 {{else}}
   <div local-class="row" ...attributes>
     <div local-class="crate-column">
       <h3>
-        <LinkTo @route="crate" @model={{@invite.crate_name}} data-test-crate-link>
+        <LinkTo @route="crate" @model={{@invite.fileSafeCrateId}} data-test-crate-link>
           {{@invite.crate_name}}
         </LinkTo>
       </h3>

@@ -7,7 +7,7 @@ import { task } from 'ember-concurrency';
 import moment from 'moment';
 
 import ajax from '../../utils/ajax';
-import sanitizeSubcrateIdForUrl from '../../utils/subcrate';
+import { sanitizeSubcrateIdForUrl } from '../../utils/subcrate';
 
 const NUM_VERSIONS = 5;
 

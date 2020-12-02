@@ -2,6 +2,7 @@ import { Response } from 'ember-cli-mirage';
 
 import { getSession } from '../utils/session';
 import { compareIsoDates, compareStrings, notFound, pageParams, withMeta } from './-utils';
+import { decodeSubcrateIdFromUrl } from '../../utils/subcrate';
 
 export function list(schema, request) {
   const { start, end } = pageParams(request);
@@ -47,8 +48,8 @@ export function list(schema, request) {
 export function register(server) {
   server.get('/api/v1/crates', list);
 
-  server.get('/api/v1/crates/:crate_id', function (schema, request) {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId', function (schema, request) {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -66,7 +67,7 @@ export function register(server) {
       return new Response(403, {}, { errors: [{ detail: 'must be logged in to perform that action' }] });
     }
 
-    let { crateId } = request.params;
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) {
       return new Response(404, {}, { errors: [{ detail: 'Not Found' }] });
@@ -83,7 +84,7 @@ export function register(server) {
       return new Response(403, {}, { errors: [{ detail: 'must be logged in to perform that action' }] });
     }
 
-    let { crateId } = request.params;
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) {
       return new Response(404, {}, { errors: [{ detail: 'Not Found' }] });
@@ -101,7 +102,7 @@ export function register(server) {
       return new Response(403, {}, { errors: [{ detail: 'must be logged in to perform that action' }] });
     }
 
-    let { crateId } = request.params;
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) {
       return new Response(404, {}, { errors: [{ detail: 'Not Found' }] });
@@ -113,16 +114,16 @@ export function register(server) {
     return { ok: true };
   });
 
-  server.get('/api/v1/crates/:crate_id/versions', (schema, request) => {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/versions', (schema, request) => {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
     return crate.versions.sort((a, b) => compareIsoDates(b.created_at, a.created_at));
   });
 
-  server.get('/api/v1/crates/:crate_id/:version_num/authors', (schema, request) => {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/:version_num/authors', (schema, request) => {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -133,8 +134,8 @@ export function register(server) {
     return { meta: { names: version._authors }, users: [] };
   });
 
-  server.get('/api/v1/crates/:crate_id/:version_num/dependencies', (schema, request) => {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/:version_num/dependencies', (schema, request) => {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -145,8 +146,8 @@ export function register(server) {
     return schema.dependencies.where({ versionId: version.id });
   });
 
-  server.get('/api/v1/crates/:crate_id/:version_num/downloads', function (schema, request) {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/:version_num/downloads', function (schema, request) {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -157,8 +158,8 @@ export function register(server) {
     return schema.versionDownloads.where({ versionId: version.id });
   });
 
-  server.get('/api/v1/crates/:crate_id/owner_user', function (schema, request) {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/owner_user', function (schema, request) {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -173,8 +174,8 @@ export function register(server) {
     };
   });
 
-  server.get('/api/v1/crates/:crate_id/owner_team', function (schema, request) {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/owner_team', function (schema, request) {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -189,8 +190,8 @@ export function register(server) {
     };
   });
 
-  server.get('/api/v1/crates/:crate_id/reverse_dependencies', function (schema, request) {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/reverse_dependencies', function (schema, request) {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -209,8 +210,8 @@ export function register(server) {
     };
   });
 
-  server.get('/api/v1/crates/:crate_id/downloads', function (schema, request) {
-    let crateId = request.params.crate_id;
+  server.get('/api/v1/crates/:crateId/downloads', function (schema, request) {
+    let crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     let crate = schema.crates.find(crateId);
     if (!crate) return notFound();
 
@@ -219,8 +220,8 @@ export function register(server) {
     return withMeta(this.serialize(versionDownloads), { extra_downloads: crate._extra_downloads });
   });
 
-  server.put('/api/v1/crates/:crate_id/owners', (schema, request) => {
-    const crateId = request.params.crate_id;
+  server.put('/api/v1/crates/:crateId/owners', (schema, request) => {
+    const crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     const crate = schema.crates.find(crateId);
 
     if (!crate) {
@@ -238,8 +239,8 @@ export function register(server) {
     return { ok: true };
   });
 
-  server.delete('/api/v1/crates/:crate_id/owners', (schema, request) => {
-    const crateId = request.params.crate_id;
+  server.delete('/api/v1/crates/:crateId/owners', (schema, request) => {
+    const crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     const crate = schema.crates.find(crateId);
 
     if (!crate) {
@@ -257,8 +258,8 @@ export function register(server) {
     return {};
   });
 
-  server.delete('/api/v1/crates/:crate_id/:version/yank', (schema, request) => {
-    const crateId = request.params.crate_id;
+  server.delete('/api/v1/crates/:crateId/:version/yank', (schema, request) => {
+    const crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     const versionNum = request.params.version;
 
     const version = schema.versions.findBy({ crateId, num: versionNum });
@@ -269,8 +270,8 @@ export function register(server) {
     return {};
   });
 
-  server.put('/api/v1/crates/:crate_id/:version/unyank', (schema, request) => {
-    const crateId = request.params.crate_id;
+  server.put('/api/v1/crates/:crateId/:version/unyank', (schema, request) => {
+    const crateId = decodeSubcrateIdFromUrl(request.params.crateId);
     const versionNum = request.params.version;
 
     const version = schema.versions.findBy({ crateId, num: versionNum });

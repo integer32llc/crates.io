@@ -1,7 +1,7 @@
 import Model, { attr, hasMany } from '@ember-data/model';
 
 import { memberAction } from 'ember-api-actions';
-import sanitizeSubcrateIdForUrl from '../utils/subcrate';
+import { sanitizeSubcrateIdForUrl } from '../utils/subcrate';
 
 export default class Crate extends Model {
   @attr name;

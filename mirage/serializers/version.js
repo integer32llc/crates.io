@@ -1,4 +1,5 @@
 import BaseSerializer from './application';
+import { sanitizeSubcrateIdForUrl } from '../../utils/subcrate';
 
 export default BaseSerializer.extend({
   attrs: [
@@ -17,9 +18,9 @@ export default BaseSerializer.extend({
 
   links(version) {
     return {
-      authors: `/api/v1/crates/${version.crateId}/${version.num}/authors`,
-      dependencies: `/api/v1/crates/${version.crateId}/${version.num}/dependencies`,
-      version_downloads: `/api/v1/crates/${version.crateId}/${version.num}/downloads`,
+      authors: `/api/v1/crates/${sanitizeSubcrateIdForUrl(version.crateId)}/${version.num}/authors`,
+      dependencies: `/api/v1/crates/${sanitizeSubcrateIdForUrl(version.crateId)}/${version.num}/dependencies`,
+      version_downloads: `/api/v1/crates/${sanitizeSubcrateIdForUrl(version.crateId)}/${version.num}/downloads`,
     };
   },
 
@@ -38,7 +39,7 @@ export default BaseSerializer.extend({
   },
 
   _adjust(hash) {
-    hash.dl_path = `/api/v1/crates/${hash.crate_id}/${hash.num}/download`;
+    hash.dl_path = `/api/v1/crates/${sanitizeSubcrateIdForUrl(hash.crate_id)}/${hash.num}/download`;
     hash.crate = hash.crate_id;
     delete hash.crate_id;
   },
