@@ -1,8 +1,8 @@
 import Model, { attr, belongsTo, hasMany } from '@ember-data/model';
 import { computed } from '@ember/object';
 import { alias } from '@ember/object/computed';
-
 import { task } from 'ember-concurrency';
+import sanitizeSubcrateIdForUrl from '../utils/subcrate';
 
 export default class Version extends Model {
   @attr num;
@@ -25,6 +25,10 @@ export default class Version extends Model {
     return this.belongsTo('crate').id();
   })
   crateName;
+
+  get fileSafeCrateId() {
+    return sanitizeSubcrateIdForUrl(this.crateName);
+  }
 
   @alias('loadAuthorsTask.last.value') authorNames;
 

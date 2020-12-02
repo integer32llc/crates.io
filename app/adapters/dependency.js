@@ -8,6 +8,6 @@ export default class DependencyAdapter extends ApplicationAdapter {
     delete query.reverse;
     let { crate } = query;
     delete query.crate;
-    return this.ajax(`/${this.urlPrefix()}/crates/${crate.get('id')}/reverse_dependencies`, 'GET', { data: query });
+    return this.ajax(`/${this.urlPrefix()}/crates/${crate.get('fileSafeCrateId')}/reverse_dependencies`, 'GET', { data: query });
   }
 }

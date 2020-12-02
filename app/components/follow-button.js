@@ -24,7 +24,7 @@ export default class extends Component {
   }
 
   @(task(function* () {
-    let d = yield ajax(`/api/v1/crates/${this.args.crate.name}/following`);
+    let d = yield ajax(`/api/v1/crates/${this.args.crate.fileSafeCrateId}/following`);
     this.following = d.following;
   }).drop())
   followStateTask;

@@ -15,7 +15,7 @@
   {{#each this.model as |dependency index|}}
     <div local-class="row" data-test-row={{index}}>
       <div>
-        <LinkTo @route="crate" @model={{dependency.version.crateName}} data-test-crate-name>
+        <LinkTo @route="crate" @model={{dependency.version.fileSafeCrateId}} data-test-crate-name>
           {{dependency.version.crateName}}
         </LinkTo>
         requires {{dependency.req}}
