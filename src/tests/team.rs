@@ -14,7 +14,10 @@ use diesel::*;
 impl crate::util::MockAnonymousUser {
     /// List the team owners of the specified crate.
     fn crate_owner_teams(&self, krate_name: &str) -> crate::util::Response<OwnerTeamsResponse> {
-        let url = format!("/api/v1/crates/{}/owner_team", krate_name);
+        let url = format!(
+            "/api/v1/crates/{}/owner_team",
+            Crate::file_safe_name(krate_name)
+        );
         self.get(&url)
     }
 }

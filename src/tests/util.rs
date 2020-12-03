@@ -28,7 +28,7 @@ use cargo_registry::{
     db::DieselPool,
     git::{Credentials, RepositoryConfig},
     middleware::current_user::TrustedUserId,
-    models::{ApiToken, CreatedApiToken, User},
+    models::{ApiToken, Crate, CreatedApiToken, User},
     util::AppResponse,
     App, Config,
 };
@@ -402,19 +402,26 @@ pub trait RequestHelper {
 
     /// Request the JSON used for a crate's page
     fn show_crate(&self, krate_name: &str) -> CrateResponse {
-        let url = format!("/api/v1/crates/{}", krate_name);
+        let url = format!("/api/v1/crates/{}", Crate::file_safe_name(krate_name));
         self.get(&url).good()
     }
 
     /// Request the JSON used to list a crate's owners
     fn show_crate_owners(&self, krate_name: &str) -> OwnersResponse {
-        let url = format!("/api/v1/crates/{}/owners", krate_name);
+        let url = format!(
+            "/api/v1/crates/{}/owners",
+            Crate::file_safe_name(krate_name)
+        );
         self.get(&url).good()
     }
 
     /// Request the JSON used for a crate version's page
     fn show_version(&self, krate_name: &str, version: &str) -> VersionResponse {
-        let url = format!("/api/v1/crates/{}/{}", krate_name, version);
+        let url = format!(
+            "/api/v1/crates/{}/{}",
+            Crate::file_safe_name(krate_name),
+            version
+        );
         self.get(&url).good()
     }
 
@@ -546,7 +553,10 @@ impl MockTokenUser {
     where
         F: Fn(&MockTokenUser, &str, &[u8]) -> Response<OkBool>,
     {
-        let url = format!("/api/v1/crates/{}/owners", krate_name);
+        let url = format!(
+            "/api/v1/crates/{}/owners",
+            Crate::file_safe_name(krate_name)
+        );
         let body = json!({ "owners": owners }).to_string();
         method(&self, &url, body.as_bytes())
     }

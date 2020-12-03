@@ -1,6 +1,7 @@
 use crate::builders::{CrateBuilder, VersionBuilder};
 use crate::util::{RequestHelper, TestApp};
 use crate::CrateMeta;
+use cargo_registry::models::krate::Crate;
 use cargo_registry::views::{EncodableDependency, EncodableVersion};
 
 #[derive(Deserialize)]
@@ -12,7 +13,10 @@ struct RevDeps {
 
 impl crate::util::MockAnonymousUser {
     fn reverse_dependencies(&self, krate_name: &str) -> RevDeps {
-        let url = format!("/api/v1/crates/{}/reverse_dependencies", krate_name);
+        let url = format!(
+            "/api/v1/crates/{}/reverse_dependencies",
+            Crate::file_safe_name(krate_name)
+        );
         self.get(&url).good()
     }
 }

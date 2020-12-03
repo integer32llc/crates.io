@@ -1,12 +1,17 @@
 use crate::builders::{CrateBuilder, PublishBuilder};
 use crate::util::{RequestHelper, TestApp};
 use crate::OkBool;
+use cargo_registry::models::krate::Crate;
 use http::StatusCode;
 
 impl crate::util::MockTokenUser {
     /// Yank the specified version of the specified crate and run all pending background jobs
     fn yank(&self, krate_name: &str, version: &str) -> crate::util::Response<OkBool> {
-        let url = format!("/api/v1/crates/{}/{}/yank", krate_name, version);
+        let url = format!(
+            "/api/v1/crates/{}/{}/yank",
+            Crate::file_safe_name(krate_name),
+            version
+        );
         let response = self.delete(&url);
         self.app().run_pending_background_jobs();
         response
@@ -14,7 +19,11 @@ impl crate::util::MockTokenUser {
 
     /// Unyank the specified version of the specified crate and run all pending background jobs
     fn unyank(&self, krate_name: &str, version: &str) -> crate::util::Response<OkBool> {
-        let url = format!("/api/v1/crates/{}/{}/unyank", krate_name, version);
+        let url = format!(
+            "/api/v1/crates/{}/{}/unyank",
+            Crate::file_safe_name(krate_name),
+            version
+        );
         let response = self.put(&url, &[]);
         self.app().run_pending_background_jobs();
         response
@@ -24,7 +33,11 @@ impl crate::util::MockTokenUser {
 impl crate::util::MockCookieUser {
     /// Yank the specified version of the specified crate and run all pending background jobs
     fn yank(&self, krate_name: &str, version: &str) -> crate::util::Response<OkBool> {
-        let url = format!("/api/v1/crates/{}/{}/yank", krate_name, version);
+        let url = format!(
+            "/api/v1/crates/{}/{}/yank",
+            Crate::file_safe_name(krate_name),
+            version
+        );
         let response = self.delete(&url);
         self.app().run_pending_background_jobs();
         response
@@ -32,7 +45,11 @@ impl crate::util::MockCookieUser {
 
     /// Unyank the specified version of the specified crate and run all pending background jobs
     fn unyank(&self, krate_name: &str, version: &str) -> crate::util::Response<OkBool> {
-        let url = format!("/api/v1/crates/{}/{}/unyank", krate_name, version);
+        let url = format!(
+            "/api/v1/crates/{}/{}/unyank",
+            Crate::file_safe_name(krate_name),
+            version
+        );
         let response = self.put(&url, &[]);
         self.app().run_pending_background_jobs();
         response
