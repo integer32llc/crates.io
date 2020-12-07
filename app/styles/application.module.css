@@ -1,11 +1,11 @@
 :root {
     --violet: #2e2359;
     --dark-grey: #2a3439;
-    --dark-green: #3b6837;
+    --bright-red: #f30b2c;
     --yellow: #ffc833;
 
-    --header-bg-color: var(--dark-green);
-    --footer-bg-color: var(--dark-green);
+    --header-bg-color: var(--bright-red);
+    --footer-bg-color: var(--bright-red);
 
     --font-family: "Fira Sans", sans-serif;
 
