@@ -16,9 +16,16 @@
 
 <div local-class='blurb'>
   <div local-class='intro'>
-    Instantly publish your crates and install them. Use the API to
-    interact and find out more information about available crates. Become
-    a contributor and enhance the site with your work.
+
+    This is a fork of <a href="https://crates.io">crates.io</a> for
+    the purpose of experimenting with namespaces as described in
+    <a href="https://github.com/Manishearth/namespacing-rfc/blob/main/0000-packages-as-optional-namespaces.md">this RFC</a>.
+
+    To use this registry to publish and use crates with namespaces, you need to install our fork of Cargo. See
+    <a href="https://github.com/caeg-industries/cargo">https://github.com/caeg-industries/cargo</a> for installation
+    instructions.
+
+    The source code for this fork is available on <a href="https://github.com/caeg-industries/crates.io">Github</a>.
   </div>
 
   <div local-class='stats'>
@@ -37,6 +44,35 @@
       data-test-total-crates
     />
   </div>
+</div>
+
+<div>
+<p>Once you have the fork of Cargo setup, you can use this registry to
+test out the namespacing functionality. The URL of the index for this
+fork is <a href="https://github.com/caeg-industries/crates.io-namespace-fork-index.git">
+https://github.com/caeg-industries/crates.io-namespace-fork-index.git</a></p>
+
+<p>Create a <code>.cargo/config.toml</code> file in your project with the following contents:</p>
+<pre><code>[registries]
+namespace-fork = { index = "https://github.com/caeg-industries/crates.io-namespace-fork-index.git" }
+</code></pre>
+
+<p>To publish packages to this fork, add <code>--index https://github.com/caeg-industries/crates.io-namespace-fork-index.git</code> to your publish commands.</p>
+<pre><code>cargo +subcrate publish \
+    --index https://github.com/caeg-industries/crates.io-namespace-fork-index.git \
+    --token "$YOUR_TOKEN"</code></pre>
+
+<p>To depend on a package that has already been published to this fork, add the <code>registry</code> setting to your dependencies in Cargo.toml. For example:</p>
+<pre><code>[package]
+name = "my-package"
+
+[dependencies]
+"foo/bar" = { version = "0.1.0", registry = "namespace-fork" }
+</code></pre>
+
+<p>For more information, the full docs on how to use an alternative
+registry is available in <a href="https://doc.rust-lang.org/cargo/reference/registries.html#using-an-alternate-registry">
+Cargo's docs</a>.</p>
 </div>
 
 {{#if this.dataTask.lastComplete.error}}
