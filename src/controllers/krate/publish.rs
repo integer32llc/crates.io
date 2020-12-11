@@ -113,12 +113,22 @@ pub fn publish(req: &mut dyn RequestExt) -> EndpointResult {
             krate.owners(&conn)?
         };
         if user.rights(req.app(), &owners)? < Rights::Publish {
-            return Err(cargo_err(
-                "this crate exists but you don't seem to be an owner. \
-                 If you believe this is a mistake, perhaps you need \
-                 to accept an invitation to be an owner before \
-                 publishing.",
-            ));
+            return Err(if created {
+                cargo_err(
+                    "this crate doesn't exist, but it belongs to a namespace \
+                     which exists where you don't seem to be an owner. \
+                     If you believe this is a mistake, perhaps you need \
+                     to accept an invitation to be an owner before \
+                     publishing.",
+                )
+            } else {
+                cargo_err(
+                    "this crate exists but you don't seem to be an owner. \
+                     If you believe this is a mistake, perhaps you need \
+                     to accept an invitation to be an owner before \
+                     publishing.",
+                )
+            });
         }
 
         if krate.name != *name {
