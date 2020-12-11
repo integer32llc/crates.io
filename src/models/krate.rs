@@ -206,16 +206,18 @@ impl<'a> NewCrate<'a> {
                 .optional()?;
 
             if let Some(ref krate) = maybe_inserted {
-                let owner = CrateOwner {
-                    crate_id: krate.id,
-                    owner_id: user_id,
-                    created_by: user_id,
-                    owner_kind: OwnerKind::User as i32,
-                    email_notifications: true,
-                };
-                diesel::insert_into(crate_owners::table)
-                    .values(&owner)
-                    .execute(conn)?;
+                if self.namespace_id.is_none() {
+                    let owner = CrateOwner {
+                        crate_id: krate.id,
+                        owner_id: user_id,
+                        created_by: user_id,
+                        owner_kind: OwnerKind::User as i32,
+                        email_notifications: true,
+                    };
+                    diesel::insert_into(crate_owners::table)
+                        .values(&owner)
+                        .execute(conn)?;
+                }
             }
 
             Ok(maybe_inserted)
@@ -471,34 +473,6 @@ impl Crate {
         Ok(Version::top(
             self.versions().select((updated_at, num)).load(conn)?,
         ))
-    }
-
-    /// Return the list of effective owners to check against when creating a new crate.
-    ///
-    /// If this is a namespaced crate, and the parent crate exists,
-    /// then this is the owners of the namespaced crate. Otherwise,
-    /// this is the same as the normal list of crate owners.
-    pub fn owners_for_new_crate(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
-        if let Some(namespace_id) = self.namespace_id {
-            let users = CrateOwner::by_owner_kind(OwnerKind::User)
-                .filter(crate_owners::crate_id.eq(namespace_id))
-                .inner_join(users::table)
-                .select(users::all_columns)
-                .load(conn)?
-                .into_iter()
-                .map(Owner::User);
-            let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
-                .filter(crate_owners::crate_id.eq(namespace_id))
-                .inner_join(teams::table)
-                .select(teams::all_columns)
-                .load(conn)?
-                .into_iter()
-                .map(Owner::Team);
-
-            Ok(users.chain(teams).collect())
-        } else {
-            self.owners(conn)
-        }
     }
 
     pub fn owners(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {

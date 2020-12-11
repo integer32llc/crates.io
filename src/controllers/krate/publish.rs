@@ -118,11 +118,7 @@ pub fn publish(req: &mut dyn RequestExt) -> EndpointResult {
         let CreatedOrUpdatedCrate { krate, created } =
             persist.create_or_update(&conn, user.id, Some(&app.config.publish_rate_limit))?;
 
-        let owners = if created {
-            krate.owners_for_new_crate(&conn)?
-        } else {
-            krate.owners(&conn)?
-        };
+        let owners = krate.owners(&conn)?;
         if user.rights(req.app(), &owners)? < Rights::Publish {
             return Err(if created {
                 cargo_err(
