@@ -46,6 +46,7 @@ pub struct Crate {
     pub documentation: Option<String>,
     pub repository: Option<String>,
     pub max_upload_size: Option<i32>,
+    pub namespace_id: Option<i32>,
 }
 
 /// We literally never want to select `textsearchable_index_col`
@@ -61,6 +62,7 @@ type AllColumns = (
     crates::documentation,
     crates::repository,
     crates::max_upload_size,
+    crates::namespace_id,
 );
 
 pub const ALL_COLUMNS: AllColumns = (
@@ -74,6 +76,7 @@ pub const ALL_COLUMNS: AllColumns = (
     crates::documentation,
     crates::repository,
     crates::max_upload_size,
+    crates::namespace_id,
 );
 
 pub const MAX_NAME_LENGTH: usize = 64;
@@ -100,6 +103,7 @@ pub struct NewCrate<'a> {
     pub readme: Option<&'a str>,
     pub repository: Option<&'a str>,
     pub max_upload_size: Option<i32>,
+    pub namespace_id: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -216,6 +220,16 @@ impl<'a> NewCrate<'a> {
 
             Ok(maybe_inserted)
         })
+    }
+
+    pub fn load_namespace_id(conn: &PgConnection, crate_name: &str) -> QueryResult<Option<i32>> {
+        let namespace = Crate::namespace(crate_name);
+        if namespace != crate_name {
+            let namespaces: Vec<Crate> = Crate::by_name(namespace).load(conn)?;
+            Ok(namespaces.first().map(|namespace| namespace.id))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -458,57 +472,46 @@ impl Crate {
     /// then this is the owners of the namespaced crate. Otherwise,
     /// this is the same as the normal list of crate owners.
     pub fn owners_for_new_crate(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
-        let namespace = Crate::namespace(&self.name);
+        if let Some(namespace_id) = self.namespace_id {
+            let users = CrateOwner::by_owner_kind(OwnerKind::User)
+                .filter(crate_owners::crate_id.eq(namespace_id))
+                .inner_join(users::table)
+                .select(users::all_columns)
+                .load(conn)?
+                .into_iter()
+                .map(Owner::User);
+            let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
+                .filter(crate_owners::crate_id.eq(namespace_id))
+                .inner_join(teams::table)
+                .select(teams::all_columns)
+                .load(conn)?
+                .into_iter()
+                .map(Owner::Team);
 
-        let mut crate_ids = vec![];
-
-        if namespace != self.name {
-            let namespaces: Vec<Crate> = Crate::by_name(namespace).load(conn)?;
-            if let Some(namespace) = namespaces.first() {
-                crate_ids.push(namespace.id);
-            }
+            Ok(users.chain(teams).collect())
+        } else {
+            self.owners(conn)
         }
-        if crate_ids.is_empty() {
-            crate_ids.push(self.id);
-        }
-
-        let users = CrateOwner::by_owner_kind(OwnerKind::User)
-            .filter(crate_owners::crate_id.eq_any(&crate_ids))
-            .inner_join(users::table)
-            .select(users::all_columns)
-            .load(conn)?
-            .into_iter()
-            .map(Owner::User);
-        let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
-            .filter(crate_owners::crate_id.eq_any(&crate_ids))
-            .inner_join(teams::table)
-            .select(teams::all_columns)
-            .load(conn)?
-            .into_iter()
-            .map(Owner::Team);
-
-        Ok(users.chain(teams).collect())
     }
 
     pub fn owners(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
-        let mut crate_ids = vec![self.id];
-
-        let namespace = Crate::namespace(&self.name);
-        if namespace != self.name {
-            let namespaces: Vec<Crate> = Crate::by_name(namespace).load(conn)?;
-            if let Some(namespace) = namespaces.first() {
-                crate_ids.push(namespace.id);
-            }
-        }
         let users = CrateOwner::by_owner_kind(OwnerKind::User)
-            .filter(crate_owners::crate_id.eq_any(&crate_ids))
+            .filter(
+                crate_owners::crate_id
+                    .eq(self.id)
+                    .or(crate_owners::crate_id.nullable().eq(self.namespace_id)),
+            )
             .inner_join(users::table)
             .select(users::all_columns)
             .load(conn)?
             .into_iter()
             .map(Owner::User);
         let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
-            .filter(crate_owners::crate_id.eq_any(&crate_ids))
+            .filter(
+                crate_owners::crate_id
+                    .eq(self.id)
+                    .or(crate_owners::crate_id.nullable().eq(self.namespace_id)),
+            )
             .inner_join(teams::table)
             .select(teams::all_columns)
             .load(conn)?
@@ -650,6 +653,7 @@ mod tests {
             readme: None,
             repository: None,
             max_upload_size: None,
+            namespace_id: None,
         };
         assert_err!(krate.validate());
     }

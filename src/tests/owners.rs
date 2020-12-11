@@ -155,6 +155,26 @@ fn subcrate_permissions_rejects_if_user_doesnt_own_namespace() {
         .contains("this crate doesn't exist, but it belongs to a namespace which exists"));
 }
 
+#[test]
+fn owner_of_namespace_also_owns_subcrates() {
+    let (app, _, user1, token) = TestApp::full().with_token();
+    let namespace_name = "foo";
+    let subcrate_name = "foo/bar";
+
+    let namespace_to_publish = PublishBuilder::new(namespace_name).version("1.0.0");
+    user1.enqueue_publish(namespace_to_publish).good();
+    let namespace_crate = app.db(|conn| Crate::by_name(namespace_name).first(conn).unwrap());
+
+    let user2 = create_and_add_owner(&app, &token, "user2", &namespace_crate);
+    let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.0");
+    user1.enqueue_publish(subcrate_to_publish).good();
+
+    let crates = user2.search_by_user_id(user2.as_model().id);
+    assert_eq!(crates.crates.len(), 2);
+    assert_eq!(crates.crates[0].name, namespace_name);
+    assert_eq!(crates.crates[1].name, subcrate_name);
+}
+
 fn create_and_add_owner(
     app: &TestApp,
     token: &MockTokenUser,

@@ -144,19 +144,31 @@ pub fn search(req: &mut dyn RequestExt) -> EndpointResult {
         query = query.filter(canon_crate_name(crates::name).like(pattern));
     } else if let Some(user_id) = params.get("user_id").and_then(|s| s.parse::<i32>().ok()) {
         query = query.filter(
-            crates::id.eq_any(
-                CrateOwner::by_owner_kind(OwnerKind::User)
-                    .select(crate_owners::crate_id)
-                    .filter(crate_owners::owner_id.eq(user_id)),
-            ),
+            crates::id
+                .eq_any(
+                    CrateOwner::by_owner_kind(OwnerKind::User)
+                        .select(crate_owners::crate_id)
+                        .filter(crate_owners::owner_id.eq(user_id)),
+                )
+                .or(crates::namespace_id.eq_any(
+                    CrateOwner::by_owner_kind(OwnerKind::User)
+                        .select(crate_owners::crate_id.nullable())
+                        .filter(crate_owners::owner_id.eq(user_id)),
+                )),
         );
     } else if let Some(team_id) = params.get("team_id").and_then(|s| s.parse::<i32>().ok()) {
         query = query.filter(
-            crates::id.eq_any(
-                CrateOwner::by_owner_kind(OwnerKind::Team)
-                    .select(crate_owners::crate_id)
-                    .filter(crate_owners::owner_id.eq(team_id)),
-            ),
+            crates::id
+                .eq_any(
+                    CrateOwner::by_owner_kind(OwnerKind::Team)
+                        .select(crate_owners::crate_id)
+                        .filter(crate_owners::owner_id.eq(team_id)),
+                )
+                .or(crates::namespace_id.eq_any(
+                    CrateOwner::by_owner_kind(OwnerKind::Team)
+                        .select(crate_owners::crate_id.nullable())
+                        .filter(crate_owners::owner_id.eq(team_id)),
+                )),
         );
     } else if params.get("following").is_some() {
         let user_id = authenticated_user?.user_id();

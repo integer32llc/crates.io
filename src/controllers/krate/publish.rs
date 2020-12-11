@@ -92,6 +92,8 @@ pub fn publish(req: &mut dyn RequestExt) -> EndpointResult {
             .map(|s| s.as_str())
             .collect::<Vec<_>>();
 
+        let namespace_id = NewCrate::load_namespace_id(&conn, &name)?;
+
         // Persist the new crate, if it doesn't already exist
         let persist = NewCrate {
             name: &name,
@@ -101,6 +103,7 @@ pub fn publish(req: &mut dyn RequestExt) -> EndpointResult {
             readme: new_crate.readme.as_deref(),
             repository: repo.as_deref(),
             max_upload_size: None,
+            namespace_id,
         };
 
         let license_file = new_crate.license_file.as_deref();
