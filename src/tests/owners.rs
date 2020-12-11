@@ -137,6 +137,15 @@ fn subcrate_permissions() {
     let user3 = create_and_add_owner(&app, &token, "user3", &parent_crate);
     let crate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.2");
     user3.enqueue_publish(crate_to_publish).good();
+
+    // User 2 is an explicit owner of subcrate, but user 3 is not
+    assert_eq!(user2.search_by_user_id(user2.as_model().id).crates.len(), 1);
+    token.remove_named_owner(subcrate_name, "user2").good();
+    assert_eq!(user2.search_by_user_id(user2.as_model().id).crates.len(), 0);
+
+    assert_eq!(user2.search_by_user_id(user3.as_model().id).crates.len(), 2);
+    token.remove_named_owner(subcrate_name, "user3").good();
+    assert_eq!(user2.search_by_user_id(user3.as_model().id).crates.len(), 2);
 }
 
 #[test]

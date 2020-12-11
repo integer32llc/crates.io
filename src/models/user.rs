@@ -123,7 +123,11 @@ impl User {
         let users = CrateOwner::by_owner_kind(OwnerKind::User)
             .inner_join(users::table)
             .select(users::all_columns)
-            .filter(crate_owners::crate_id.eq(krate.id))
+            .filter(
+                crate_owners::crate_id
+                    .eq(krate.id)
+                    .or(crate_owners::crate_id.nullable().eq(krate.namespace_id)),
+            )
             .load(conn)?
             .into_iter()
             .map(Owner::User);
