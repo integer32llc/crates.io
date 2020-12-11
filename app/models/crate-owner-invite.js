@@ -9,6 +9,6 @@ export default class CrateOwnerInvite extends Model {
   @attr accepted;
 
   get fileSafeCrateId() {
-    return sanitizeSubcrateIdForUrl(this.crate_id);
+    return sanitizeSubcrateIdForUrl(this.crate_name);
   }
 }
