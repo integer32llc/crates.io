@@ -112,6 +112,31 @@ fn new_crate_owner() {
         .good();
 }
 
+#[test]
+fn subcrate_permissions() {
+    let (app, _, user1, token) = TestApp::full().with_token();
+
+    let crate_to_publish = PublishBuilder::new("foo").version("1.0.0");
+    user1.enqueue_publish(crate_to_publish).good();
+
+    let crate_name = "foo/bar";
+    let crate_to_publish = PublishBuilder::new(crate_name).version("1.0.0");
+    user1.enqueue_publish(crate_to_publish).good();
+    let krate: Crate = app.db(|conn| Crate::by_name(crate_name).first(conn).unwrap());
+    let user2 = create_and_add_owner(&app, &token, "user2", &krate);
+    let crates = user2.search_by_user_id(user2.as_model().id);
+    assert_eq!(crates.crates.len(), 1);
+    assert_eq!(crates.crates[0].name, crate_name);
+    let crate_to_publish = PublishBuilder::new(crate_name).version("1.0.1");
+    user2.enqueue_publish(crate_to_publish).good();
+
+    // Owner of a crate should be able to publish its subcrate
+    let krate: Crate = app.db(|conn| Crate::by_name("foo").first(conn).unwrap());
+    let user3 = create_and_add_owner(&app, &token, "user3", &krate);
+    let crate_to_publish = PublishBuilder::new(crate_name).version("1.0.2");
+    user3.enqueue_publish(crate_to_publish).good();
+}
+
 fn create_and_add_owner(
     app: &TestApp,
     token: &MockTokenUser,
