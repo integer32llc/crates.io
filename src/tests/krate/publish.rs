@@ -131,9 +131,19 @@ fn new_krate() {
 fn new_subkrate() {
     let (_, _, user) = TestApp::full().with_user();
 
-    let crate_to_publish = PublishBuilder::new("foo_new/bar_new").version("1.0.0");
-    let json: GoodCrate = user.enqueue_publish(crate_to_publish).good();
+    let subcrate_to_publish = PublishBuilder::new("foo_new/bar_new").version("1.0.0");
+    let json = user
+        .enqueue_publish(subcrate_to_publish)
+        .bad_with_status(StatusCode::OK);
+    assert!(&json.errors[0]
+        .detail
+        .contains("this crate belongs to a namespace which does not exist"));
 
+    let namespace_to_publish = PublishBuilder::new("foo_new").version("1.0.0");
+    user.enqueue_publish(namespace_to_publish).good();
+
+    let subcrate_to_publish = PublishBuilder::new("foo_new/bar_new").version("1.0.0");
+    let json: GoodCrate = user.enqueue_publish(subcrate_to_publish).good();
     assert_eq!(json.krate.name, "foo_new/bar_new");
     assert_eq!(json.krate.max_version, "1.0.0");
 }

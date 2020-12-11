@@ -225,8 +225,11 @@ impl<'a> NewCrate<'a> {
     pub fn load_namespace_id(conn: &PgConnection, crate_name: &str) -> QueryResult<Option<i32>> {
         let namespace = Crate::namespace(crate_name);
         if namespace != crate_name {
-            let namespaces: Vec<Crate> = Crate::by_name(namespace).load(conn)?;
-            Ok(namespaces.first().map(|namespace| namespace.id))
+            let namespaces: Vec<i32> = Crate::by_name(namespace)
+                .select(crates::id)
+                .limit(1)
+                .load(conn)?;
+            Ok(namespaces.into_iter().next())
         } else {
             Ok(None)
         }
@@ -237,6 +240,10 @@ impl Crate {
     pub fn namespace(name: &str) -> &str {
         // Safe because you get at least one
         name.split(SUBCRATE_DELIMETER).next().unwrap()
+    }
+
+    pub fn is_subcrate(name: &str) -> bool {
+        name.contains(SUBCRATE_DELIMETER)
     }
 
     pub fn file_safe_name(name: &str) -> String {

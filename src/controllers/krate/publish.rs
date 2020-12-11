@@ -7,7 +7,7 @@ use swirl::Job;
 use crate::git;
 use crate::models::dependency;
 use crate::models::{
-    insert_version_owner_action, Badge, Category, Keyword, NewCrate, NewVersion, Rights,
+    insert_version_owner_action, Badge, Category, Crate, Keyword, NewCrate, NewVersion, Rights,
     VersionAction,
 };
 use crate::{controllers::cargo_prelude::*, models::krate::CreatedOrUpdatedCrate};
@@ -93,6 +93,14 @@ pub fn publish(req: &mut dyn RequestExt) -> EndpointResult {
             .collect::<Vec<_>>();
 
         let namespace_id = NewCrate::load_namespace_id(&conn, &name)?;
+        if Crate::is_subcrate(&name) && namespace_id.is_none() {
+            return Err(cargo_err(&format!(
+                "this crate belongs to a namespace which does not exist. \
+                 In order to publish this subcrate, the namespace `{}` \
+                 must first be published.",
+                Crate::namespace(&name)
+            )));
+        }
 
         // Persist the new crate, if it doesn't already exist
         let persist = NewCrate {
