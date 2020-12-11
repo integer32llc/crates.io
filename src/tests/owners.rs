@@ -137,6 +137,19 @@ fn subcrate_permissions() {
     user3.enqueue_publish(crate_to_publish).good();
 }
 
+#[test]
+fn subcrate_permissions_rejects_if_not_own_parent() {
+    let (app, _, user1) = TestApp::full().with_user();
+    let crate_to_publish = PublishBuilder::new("foo").version("1.0.0");
+    user1.enqueue_publish(crate_to_publish).good();
+
+    let crate_to_publish = PublishBuilder::new("foo/bar").version("1.0.0");
+    let user2 = app.db_new_user("user2");
+    let rejection = user2
+        .enqueue_publish(crate_to_publish)
+        .bad_with_status(StatusCode::OK);
+}
+
 fn create_and_add_owner(
     app: &TestApp,
     token: &MockTokenUser,

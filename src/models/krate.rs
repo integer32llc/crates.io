@@ -102,13 +102,19 @@ pub struct NewCrate<'a> {
     pub max_upload_size: Option<i32>,
 }
 
+#[derive(Debug)]
+pub struct CreatedOrUpdatedCrate {
+    pub krate: Crate,
+    pub created: bool,
+}
+
 impl<'a> NewCrate<'a> {
     pub fn create_or_update(
         self,
         conn: &PgConnection,
         uploader: i32,
         rate_limit: Option<&PublishRateLimit>,
-    ) -> AppResult<Crate> {
+    ) -> AppResult<CreatedOrUpdatedCrate> {
         use diesel::update;
 
         self.validate()?;
@@ -121,15 +127,21 @@ impl<'a> NewCrate<'a> {
                 if let Some(rate_limit) = rate_limit {
                     rate_limit.check_rate_limit(uploader, conn)?;
                 }
-                return Ok(krate);
+                Ok(CreatedOrUpdatedCrate {
+                    krate,
+                    created: true,
+                })
+            } else {
+                let krate = update(crates::table)
+                    .filter(canon_crate_name(crates::name).eq(canon_crate_name(self.name)))
+                    .set(&self)
+                    .returning(ALL_COLUMNS)
+                    .get_result(conn)?;
+                Ok(CreatedOrUpdatedCrate {
+                    krate,
+                    created: false,
+                })
             }
-
-            update(crates::table)
-                .filter(canon_crate_name(crates::name).eq(canon_crate_name(self.name)))
-                .set(&self)
-                .returning(ALL_COLUMNS)
-                .get_result(conn)
-                .map_err(Into::into)
         })
     }
 
@@ -440,13 +452,53 @@ impl Crate {
         ))
     }
 
+    /// Return the list of effective owners to check against when creating a new crate.
+    ///
+    /// If this is a namespaced crate, and the parent crate exists,
+    /// then this is the owners of the namespaced crate. Otherwise,
+    /// this is the same as the normal list of crate owners.
+    pub fn owners_for_new_crate(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
+        let namespace = Crate::namespace(&self.name);
+
+        let mut crate_ids = vec![];
+
+        if namespace != self.name {
+            let namespaces: Vec<Crate> = Crate::by_name(namespace).load(conn)?;
+            if let Some(namespace) = namespaces.first() {
+                crate_ids.push(namespace.id);
+            }
+        }
+        if crate_ids.is_empty() {
+            crate_ids.push(self.id);
+        }
+
+        let users = CrateOwner::by_owner_kind(OwnerKind::User)
+            .filter(crate_owners::crate_id.eq_any(&crate_ids))
+            .inner_join(users::table)
+            .select(users::all_columns)
+            .load(conn)?
+            .into_iter()
+            .map(Owner::User);
+        let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
+            .filter(crate_owners::crate_id.eq_any(&crate_ids))
+            .inner_join(teams::table)
+            .select(teams::all_columns)
+            .load(conn)?
+            .into_iter()
+            .map(Owner::Team);
+
+        Ok(users.chain(teams).collect())
+    }
+
     pub fn owners(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
-        // TODO duplicate owners for top-level (parent) crate
-        let namespaces = Crate::by_name(Crate::namespace(&self.name)).load(conn)?;
-        let namespace: Option<&Self> = namespaces.first();
         let mut crate_ids = vec![self.id];
-        if let Some(namespace) = namespace {
-            crate_ids.push(namespace.id);
+
+        let namespace = Crate::namespace(&self.name);
+        if namespace != self.name {
+            let namespaces: Vec<Crate> = Crate::by_name(namespace).load(conn)?;
+            if let Some(namespace) = namespaces.first() {
+                crate_ids.push(namespace.id);
+            }
         }
         let users = CrateOwner::by_owner_kind(OwnerKind::User)
             .filter(crate_owners::crate_id.eq_any(&crate_ids))

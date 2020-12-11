@@ -85,7 +85,9 @@ mod test {
     use super::*;
     use crate::{
         env,
-        models::{Crate, NewCrate, NewUser, NewVersion, User, Version},
+        models::{
+            krate::CreatedOrUpdatedCrate, Crate, NewCrate, NewUser, NewVersion, User, Version,
+        },
     };
     use std::collections::HashMap;
 
@@ -102,7 +104,7 @@ mod test {
     }
 
     fn crate_and_version(conn: &PgConnection, user_id: i32) -> (Crate, Version) {
-        let krate = NewCrate {
+        let CreatedOrUpdatedCrate { krate, .. } = NewCrate {
             name: "foo",
             ..Default::default()
         }

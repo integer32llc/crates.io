@@ -4,13 +4,13 @@ use hex::ToHex;
 use std::sync::Arc;
 use swirl::Job;
 
-use crate::controllers::cargo_prelude::*;
 use crate::git;
 use crate::models::dependency;
 use crate::models::{
     insert_version_owner_action, Badge, Category, Keyword, NewCrate, NewVersion, Rights,
     VersionAction,
 };
+use crate::{controllers::cargo_prelude::*, models::krate::CreatedOrUpdatedCrate};
 
 use crate::render;
 use crate::util::{read_fill, read_le_u32, Maximums};
@@ -104,10 +104,14 @@ pub fn publish(req: &mut dyn RequestExt) -> EndpointResult {
         };
 
         let license_file = new_crate.license_file.as_deref();
-        let krate =
+        let CreatedOrUpdatedCrate { krate, created } =
             persist.create_or_update(&conn, user.id, Some(&app.config.publish_rate_limit))?;
 
-        let owners = krate.owners(&conn)?;
+        let owners = if created {
+            krate.owners_for_new_crate(&conn)?
+        } else {
+            krate.owners(&conn)?
+        };
         if user.rights(req.app(), &owners)? < Rights::Publish {
             return Err(cargo_err(
                 "this crate exists but you don't seem to be an owner. \

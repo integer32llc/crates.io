@@ -1,5 +1,5 @@
 use cargo_registry::{
-    models::{Category, Crate, Keyword, NewCrate},
+    models::{krate::CreatedOrUpdatedCrate, Category, Crate, Keyword, NewCrate},
     schema::{crates, version_downloads},
     util::errors::AppResult,
 };
@@ -114,9 +114,9 @@ impl<'a> CrateBuilder<'a> {
     pub fn build(mut self, connection: &PgConnection) -> AppResult<Crate> {
         use diesel::{insert_into, select, update};
 
-        let mut krate = self
-            .krate
-            .create_or_update(connection, self.owner_id, None)?;
+        let CreatedOrUpdatedCrate { mut krate, .. } =
+            self.krate
+                .create_or_update(connection, self.owner_id, None)?;
 
         // Since we are using `NewCrate`, we can't set all the
         // crate properties in a single DB call.
