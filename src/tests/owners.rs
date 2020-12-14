@@ -116,36 +116,53 @@ fn new_crate_owner() {
 fn subcrate_permissions() {
     let (app, _, user1, token) = TestApp::full().with_token();
 
-    let namespace_crate_to_publish = PublishBuilder::new("foo").version("1.0.0");
+    let namespace_name = "foo";
+    let subcrate_name = "foo/bar";
+
+    // Publish namespace crate
+    let namespace_crate_to_publish = PublishBuilder::new(namespace_name).version("1.0.0");
     user1.enqueue_publish(namespace_crate_to_publish).good();
 
-    let subcrate_name = "foo/bar";
+    // Publish subcrate
     let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.0");
     user1.enqueue_publish(subcrate_to_publish).good();
 
+    // Add new subcrate owner
     let subcrate: Crate = app.db(|conn| Crate::by_name(subcrate_name).first(conn).unwrap());
     let user2 = create_and_add_owner(&app, &token, "user2", &subcrate);
-    let crates = user2.search_by_user_id(user2.as_model().id);
+    let crates = token.search_by_user_id(user2.as_model().id);
     assert_eq!(crates.crates.len(), 1);
     assert_eq!(crates.crates[0].name, subcrate_name);
 
+    // Owner can publish a new version of the subcrate
     let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.1");
     user2.enqueue_publish(subcrate_to_publish).good();
 
-    // Owner of a crate should be able to publish its subcrate
-    let parent_crate: Crate = app.db(|conn| Crate::by_name("foo").first(conn).unwrap());
-    let user3 = create_and_add_owner(&app, &token, "user3", &parent_crate);
+    // Add new namespace crate Owner
+    let namespace_crate: Crate = app.db(|conn| Crate::by_name(namespace_name).first(conn).unwrap());
+    let user3 = create_and_add_owner(&app, &token, "user3", &namespace_crate);
+
+    // Owner of a namespace crate can publish a new version of its subcrate
     let crate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.2");
     user3.enqueue_publish(crate_to_publish).good();
 
-    // User 2 is an explicit owner of subcrate, but user 3 is not
-    assert_eq!(user2.search_by_user_id(user2.as_model().id).crates.len(), 1);
-    token.remove_named_owner(subcrate_name, "user2").good();
-    assert_eq!(user2.search_by_user_id(user2.as_model().id).crates.len(), 0);
+    // Owner of a namespace crate can publish a new version of the namespace crate
+    let crate_to_publish = PublishBuilder::new(namespace_name).version("1.0.1");
+    user3.enqueue_publish(crate_to_publish).good();
 
-    assert_eq!(user2.search_by_user_id(user3.as_model().id).crates.len(), 2);
+    // Some sanity checks
+    let crates = token.search_by_user_id(user3.as_model().id);
+    assert_eq!(crates.crates.len(), 2);
+    assert_eq!(crates.crates[0].name, namespace_name);
+    assert_eq!(crates.crates[1].name, subcrate_name);
+
+    // User 2 is an explicit owner of subcrate, but user 3 is not
+    assert_eq!(token.search_by_user_id(user2.as_model().id).crates.len(), 1);
+    token.remove_named_owner(subcrate_name, "user2").good();
+    assert_eq!(token.search_by_user_id(user2.as_model().id).crates.len(), 0);
+    assert_eq!(token.search_by_user_id(user3.as_model().id).crates.len(), 2);
     token.remove_named_owner(subcrate_name, "user3").good();
-    assert_eq!(user2.search_by_user_id(user3.as_model().id).crates.len(), 2);
+    assert_eq!(token.search_by_user_id(user3.as_model().id).crates.len(), 2);
 }
 
 #[test]
