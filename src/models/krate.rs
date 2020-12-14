@@ -477,29 +477,39 @@ impl Crate {
 
     pub fn owners(&self, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
         let users = CrateOwner::by_owner_kind(OwnerKind::User)
-            .filter(
-                crate_owners::crate_id
-                    .eq(self.id)
-                    .or(crate_owners::crate_id.nullable().eq(self.namespace_id)),
-            )
+            .filter(crate_owners::crate_id.eq(self.id))
             .inner_join(users::table)
             .select(users::all_columns)
             .load(conn)?
             .into_iter()
             .map(Owner::User);
+        let namespace_users = CrateOwner::by_owner_kind(OwnerKind::User)
+            .filter(crate_owners::crate_id.nullable().eq(self.namespace_id))
+            .inner_join(users::table)
+            .select(users::all_columns)
+            .load(conn)?
+            .into_iter()
+            .map(Owner::NamespaceUser);
         let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
-            .filter(
-                crate_owners::crate_id
-                    .eq(self.id)
-                    .or(crate_owners::crate_id.nullable().eq(self.namespace_id)),
-            )
+            .filter(crate_owners::crate_id.eq(self.id))
             .inner_join(teams::table)
             .select(teams::all_columns)
             .load(conn)?
             .into_iter()
             .map(Owner::Team);
+        let namespace_teams = CrateOwner::by_owner_kind(OwnerKind::Team)
+            .filter(crate_owners::crate_id.nullable().eq(self.namespace_id))
+            .inner_join(teams::table)
+            .select(teams::all_columns)
+            .load(conn)?
+            .into_iter()
+            .map(Owner::NamespaceTeam);
 
-        Ok(users.chain(teams).collect())
+        Ok(users
+            .chain(namespace_users)
+            .chain(teams)
+            .chain(namespace_teams)
+            .collect())
     }
 
     pub fn owner_add(
@@ -515,7 +525,7 @@ impl Crate {
 
         match owner {
             // Users are invited and must accept before being added
-            Owner::User(user) => {
+            Owner::User(user) | Owner::NamespaceUser(user) => {
                 let maybe_inserted: Option<CrateOwnerInvitation> =
                     insert_into(crate_owner_invitations::table)
                         .values(&NewCrateOwnerInvitation {
@@ -544,7 +554,7 @@ impl Crate {
                 ))
             }
             // Teams are added as owners immediately
-            owner @ Owner::Team(_) => {
+            owner @ Owner::Team(_) | owner @ Owner::NamespaceTeam(_) => {
                 insert_into(crate_owners::table)
                     .values(&CrateOwner {
                         crate_id: self.id,

@@ -24,8 +24,12 @@ export default class UserAvatar extends Component {
     switch (user.kind) {
       case 'user':
         return user.name;
+      case 'namespace_user':
+        return `${user.name} (namespace owner)`;
       case 'team':
         return `${user.name} team`;
+      case 'namespace_team':
+        return `${user.name} team (namespace owner)`;
       default:
         return `${user.name} (${user.kind})`;
     }

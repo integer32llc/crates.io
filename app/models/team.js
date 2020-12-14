@@ -21,4 +21,8 @@ export default class Team extends Model {
     return `${this.org_name}/${this.name}`;
   })
   display_name;
+
+  get isDirectOwner() {
+    return this.kind === 'team';
+  }
 }

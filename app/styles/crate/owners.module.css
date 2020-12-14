@@ -48,6 +48,11 @@
     color: var(--main-color-light);
 }
 
+.remove-column {
+    width: 25%;
+    text-align: right;
+}
+
 .remove-button {
     composes: small yellow-button from '../shared/buttons.module.css';
 }

@@ -202,16 +202,23 @@ impl Team {
     }
 
     pub fn owning(krate: &Crate, conn: &PgConnection) -> QueryResult<Vec<Owner>> {
-        let base_query = CrateOwner::belonging_to(krate).filter(crate_owners::deleted.eq(false));
-        let teams = base_query
+        let teams = CrateOwner::by_owner_kind(OwnerKind::Team)
             .inner_join(teams::table)
             .select(teams::all_columns)
-            .filter(crate_owners::owner_kind.eq(OwnerKind::Team as i32))
+            .filter(crate_owners::crate_id.eq(krate.id))
             .load(conn)?
             .into_iter()
             .map(Owner::Team);
 
-        Ok(teams.collect())
+        let namespace_teams = CrateOwner::by_owner_kind(OwnerKind::Team)
+            .inner_join(teams::table)
+            .select(teams::all_columns)
+            .filter(crate_owners::crate_id.nullable().eq(krate.namespace_id))
+            .load(conn)?
+            .into_iter()
+            .map(Owner::NamespaceTeam);
+
+        Ok(teams.chain(namespace_teams).collect())
     }
 
     pub fn encodable(self) -> EncodableTeam {

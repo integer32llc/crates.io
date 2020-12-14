@@ -14,6 +14,10 @@ export default class User extends Model {
 
   stats = memberAction({ type: 'GET', path: 'stats' });
 
+  get isDirectOwner() {
+    return this.kind === 'user';
+  }
+
   async changeEmail(email) {
     await this.#changeEmail(email);
     this.store.pushPayload({

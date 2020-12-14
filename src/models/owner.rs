@@ -43,6 +43,8 @@ impl CrateOwner {
 pub enum OwnerKind {
     User = 0,
     Team = 1,
+    NamespaceUser = 2,
+    NamespaceTeam = 3,
 }
 
 /// Unifies the notion of a User or a Team.
@@ -50,6 +52,8 @@ pub enum OwnerKind {
 pub enum Owner {
     User(User),
     Team(Team),
+    NamespaceUser(User),
+    NamespaceTeam(Team),
 }
 
 impl Owner {
@@ -84,32 +88,43 @@ impl Owner {
         match *self {
             Owner::User(_) => OwnerKind::User as i32,
             Owner::Team(_) => OwnerKind::Team as i32,
+            Owner::NamespaceUser(_) => OwnerKind::NamespaceUser as i32,
+            Owner::NamespaceTeam(_) => OwnerKind::NamespaceTeam as i32,
         }
     }
 
     pub fn login(&self) -> &str {
         match *self {
-            Owner::User(ref user) => &user.gh_login,
-            Owner::Team(ref team) => &team.login,
+            Owner::User(ref user) | Owner::NamespaceUser(ref user) => &user.gh_login,
+            Owner::Team(ref team) | Owner::NamespaceTeam(ref team) => &team.login,
         }
     }
 
     pub fn id(&self) -> i32 {
         match *self {
-            Owner::User(ref user) => user.id,
-            Owner::Team(ref team) => team.id,
+            Owner::User(ref user) | Owner::NamespaceUser(ref user) => user.id,
+            Owner::Team(ref team) | Owner::NamespaceTeam(ref team) => team.id,
         }
     }
 
     pub fn encodable(self) -> EncodableOwner {
+        let kind = match self {
+            Owner::User(_) => "user",
+            Owner::NamespaceUser(_) => "namespace_user",
+            Owner::Team(_) => "team",
+            Owner::NamespaceTeam(_) => "namespace_team",
+        }
+        .to_owned();
+
         match self {
-            Owner::User(User {
-                id,
-                name,
-                gh_login,
-                gh_avatar,
-                ..
-            }) => {
+            Owner::User(user) | Owner::NamespaceUser(user) => {
+                let User {
+                    id,
+                    name,
+                    gh_login,
+                    gh_avatar,
+                    ..
+                } = user;
                 let url = format!("https://github.com/{}", gh_login);
                 EncodableOwner {
                     id,
@@ -117,16 +132,17 @@ impl Owner {
                     avatar: gh_avatar,
                     url: Some(url),
                     name,
-                    kind: String::from("user"),
+                    kind,
                 }
             }
-            Owner::Team(Team {
-                id,
-                name,
-                login,
-                avatar,
-                ..
-            }) => {
+            Owner::Team(team) | Owner::NamespaceTeam(team) => {
+                let Team {
+                    id,
+                    name,
+                    login,
+                    avatar,
+                    ..
+                } = team;
                 let url = github::team_url(&login);
                 EncodableOwner {
                     id,
@@ -134,7 +150,7 @@ impl Owner {
                     url: Some(url),
                     avatar,
                     name,
-                    kind: String::from("team"),
+                    kind,
                 }
             }
         }

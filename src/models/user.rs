@@ -123,16 +123,20 @@ impl User {
         let users = CrateOwner::by_owner_kind(OwnerKind::User)
             .inner_join(users::table)
             .select(users::all_columns)
-            .filter(
-                crate_owners::crate_id
-                    .eq(krate.id)
-                    .or(crate_owners::crate_id.nullable().eq(krate.namespace_id)),
-            )
+            .filter(crate_owners::crate_id.eq(krate.id))
             .load(conn)?
             .into_iter()
             .map(Owner::User);
 
-        Ok(users.collect())
+        let namespace_users = CrateOwner::by_owner_kind(OwnerKind::User)
+            .inner_join(users::table)
+            .select(users::all_columns)
+            .filter(crate_owners::crate_id.nullable().eq(krate.namespace_id))
+            .load(conn)?
+            .into_iter()
+            .map(Owner::NamespaceUser);
+
+        Ok(users.chain(namespace_users).collect())
     }
 
     /// Given this set of owners, determines the strongest rights the
@@ -147,12 +151,12 @@ impl User {
         let mut best = Rights::None;
         for owner in owners {
             match *owner {
-                Owner::User(ref other_user) => {
+                Owner::User(ref other_user) | Owner::NamespaceUser(ref other_user) => {
                     if other_user.id == self.id {
                         return Ok(Rights::Full);
                     }
                 }
-                Owner::Team(ref team) => {
+                Owner::Team(ref team) | Owner::NamespaceTeam(ref team) => {
                     if team.contains_user(app, self)? {
                         best = Rights::Publish;
                     }
