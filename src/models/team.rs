@@ -218,7 +218,7 @@ impl Team {
             .into_iter()
             .map(Owner::NamespaceTeam);
 
-        Ok(teams.chain(namespace_teams).collect())
+        Ok(namespace_teams.chain(teams).collect())
     }
 
     pub fn encodable(self) -> EncodableTeam {

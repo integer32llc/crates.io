@@ -136,7 +136,7 @@ impl User {
             .into_iter()
             .map(Owner::NamespaceUser);
 
-        Ok(users.chain(namespace_users).collect())
+        Ok(namespace_users.chain(users).collect())
     }
 
     /// Given this set of owners, determines the strongest rights the

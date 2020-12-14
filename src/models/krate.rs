@@ -505,10 +505,10 @@ impl Crate {
             .into_iter()
             .map(Owner::NamespaceTeam);
 
-        Ok(users
-            .chain(namespace_users)
-            .chain(teams)
+        Ok(namespace_users
+            .chain(users)
             .chain(namespace_teams)
+            .chain(teams)
             .collect())
     }
 
