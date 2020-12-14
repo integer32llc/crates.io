@@ -85,6 +85,7 @@ readme = "public"
 textsearchable_index_col = "public"
 repository = "public"
 max_upload_size = "public"
+namespace_id = "public"
 
 [crates_categories]
 dependencies = ["categories", "crates"]
