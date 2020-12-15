@@ -123,6 +123,16 @@ fn subcrate_permissions() {
     let namespace_crate_to_publish = PublishBuilder::new(namespace_name).version("1.0.0");
     user1.enqueue_publish(namespace_crate_to_publish).good();
 
+    // User cannot publish a subcrate unless they are its owner
+    let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.0");
+    let failed_user = app.db_new_user("failed_user");
+    let json = failed_user
+        .enqueue_publish(subcrate_to_publish)
+        .bad_with_status(StatusCode::OK);
+    assert!(&json.errors[0]
+        .detail
+        .contains("this crate doesn't exist, but it belongs to a namespace which exists"));
+
     // Publish subcrate
     let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.0");
     user1.enqueue_publish(subcrate_to_publish).good();
@@ -163,22 +173,6 @@ fn subcrate_permissions() {
     assert_eq!(token.search_by_user_id(user3.as_model().id).crates.len(), 2);
     token.remove_named_owner(subcrate_name, "user3").good();
     assert_eq!(token.search_by_user_id(user3.as_model().id).crates.len(), 2);
-}
-
-#[test]
-fn subcrate_permissions_rejects_if_user_doesnt_own_namespace() {
-    let (app, _, user1) = TestApp::full().with_user();
-    let crate_to_publish = PublishBuilder::new("foo").version("1.0.0");
-    user1.enqueue_publish(crate_to_publish).good();
-
-    let crate_to_publish = PublishBuilder::new("foo/bar").version("1.0.0");
-    let user2 = app.db_new_user("user2");
-    let json = user2
-        .enqueue_publish(crate_to_publish)
-        .bad_with_status(StatusCode::OK);
-    assert!(&json.errors[0]
-        .detail
-        .contains("this crate doesn't exist, but it belongs to a namespace which exists"));
 }
 
 fn create_and_add_owner(
