@@ -183,6 +183,20 @@ fn subcrate_permissions() {
     assert_eq!(token.search_by_user_id(user3.as_model().id).crates.len(), 2);
     token.remove_named_owner(subcrate_name, "user3").good();
     assert_eq!(token.search_by_user_id(user3.as_model().id).crates.len(), 2);
+
+    // Removing user from ownership of namespace crate after they are explicitly
+    // made owner of subcrate will result in them remaining owner of that subcrate
+    add_owner(&token, &user2, &subcrate);
+    assert_eq!(token.search_by_user_id(user2.as_model().id).crates.len(), 1);
+    add_owner(&token, &user2, &namespace_crate);
+    assert_eq!(token.search_by_user_id(user2.as_model().id).crates.len(), 2);
+    token.remove_named_owner(namespace_name, "user2").good();
+    assert_eq!(token.search_by_user_id(user2.as_model().id).crates.len(), 1);
+}
+
+fn add_owner(token: &MockTokenUser, user: &MockCookieUser, krate: &Crate) {
+    token.add_user_owner(&krate.name, user.as_model());
+    user.accept_ownership_invitation(&krate.name, krate.id);
 }
 
 fn create_and_add_owner(
@@ -192,8 +206,7 @@ fn create_and_add_owner(
     krate: &Crate,
 ) -> MockCookieUser {
     let user = app.db_new_user(username);
-    token.add_user_owner(&krate.name, user.as_model());
-    user.accept_ownership_invitation(&krate.name, krate.id);
+    add_owner(token, &user, krate);
     user
 }
 
