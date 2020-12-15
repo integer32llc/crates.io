@@ -1,6 +1,7 @@
 import Model, { belongsTo, attr } from '@ember-data/model';
 
 import Inflector from 'ember-inflector';
+import { sanitizeSubcrateIdForUrl } from '../utils/subcrate';
 
 Inflector.inflector.irregular('dependency', 'dependencies');
 
@@ -12,6 +13,10 @@ export default class Dependency extends Model {
   @attr({ defaultValue: () => [] }) features;
   @attr kind;
   @attr downloads;
+
+  get fileSafeCrateId() {
+    return sanitizeSubcrateIdForUrl(this.crate_id);
+  }
 
   @belongsTo('version', { async: false }) version;
 }
