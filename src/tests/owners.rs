@@ -123,7 +123,7 @@ fn subcrate_permissions() {
     let namespace_crate_to_publish = PublishBuilder::new(namespace_name).version("1.0.0");
     user1.enqueue_publish(namespace_crate_to_publish).good();
 
-    // User cannot publish a subcrate unless they are its owner
+    // User cannot publish a subcrate, unless they are its owner
     let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.0");
     let failed_user = app.db_new_user("failed_user");
     let json = failed_user
@@ -136,6 +136,16 @@ fn subcrate_permissions() {
     // Publish subcrate
     let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.0");
     user1.enqueue_publish(subcrate_to_publish).good();
+
+    // User cannot publish a new version of a subcrate, unless they are its owner
+    let subcrate_to_publish = PublishBuilder::new(subcrate_name).version("1.0.1");
+    let failed_user = app.db_new_user("failed_user");
+    let json = failed_user
+        .enqueue_publish(subcrate_to_publish)
+        .bad_with_status(StatusCode::OK);
+    assert!(&json.errors[0]
+        .detail
+        .contains("this crate exists but you don't seem to be an owner"));
 
     // Add new subcrate owner
     let subcrate: Crate = app.db(|conn| Crate::by_name(subcrate_name).first(conn).unwrap());
