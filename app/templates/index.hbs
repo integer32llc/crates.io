@@ -21,11 +21,11 @@
     the purpose of experimenting with namespaces as described in
     <a href="https://github.com/Manishearth/namespacing-rfc/blob/main/0000-packages-as-optional-namespaces.md">this RFC</a>.
 
-    To use this registry to publish and use crates with namespaces, you need to install our fork of Cargo. See
+    To use this registry to publish and use crates with namespaces, you need to install Caeg's fork of Cargo. See
     <a href="https://github.com/caeg-industries/cargo">https://github.com/caeg-industries/cargo</a> for installation
     instructions.
 
-    The source code for this fork is available on <a href="https://github.com/caeg-industries/crates.io">Github</a>.
+    The source code for this instance of crates.io is available on <a href="https://github.com/integer32llc/crates.io/tree/subcrates">Github</a>.
   </div>
 
   <div local-class='stats'>
@@ -47,27 +47,29 @@
 </div>
 
 <div>
-<p>Once you have the fork of Cargo setup, you can use this registry to
+<p>Once you have the fork of Cargo set up, you can use this registry to
 test out the namespacing functionality. The URL of the index for this
-fork is <a href="https://github.com/caeg-industries/crates.io-namespace-fork-index.git">
-https://github.com/caeg-industries/crates.io-namespace-fork-index.git</a></p>
+fork is <a href="https://github.com/integer32llc/crates.io-namespace-fork-index.git">
+https://github.com/integer32llc/crates.io-namespace-fork-index.git</a></p>
 
-<p>Create a <code>.cargo/config.toml</code> file in your project with the following contents:</p>
+<p>Create a <code>.cargo/config.toml</code> file in your project with the following contents to tell Cargo about the registry and name it `cratespaces`:</p>
 <pre><code>[registries]
-namespace-fork = { index = "https://github.com/caeg-industries/crates.io-namespace-fork-index.git" }
+cratespaces = { index = "https://github.com/integer32llc/crates.io-namespace-fork-index.git" }
 </code></pre>
 
-<p>To publish packages to this fork, add <code>--index https://github.com/caeg-industries/crates.io-namespace-fork-index.git</code> to your publish commands.</p>
+<p>Sign in to this instance with your GitHub account, create a new token, and log in with:</p>
+<pre><code>$ cargo login --registry cratespaces [token value]</code></pre>
+
+<p>To publish packages to this fork, add <code>--registry cratespaces</code> to your publish commands.</p>
 <pre><code>cargo +subcrate publish \
-    --index https://github.com/caeg-industries/crates.io-namespace-fork-index.git \
-    --token "$YOUR_TOKEN"</code></pre>
+    --registry cratespaces</code></pre>
 
 <p>To depend on a package that has already been published to this fork, add the <code>registry</code> setting to your dependencies in Cargo.toml. For example:</p>
 <pre><code>[package]
 name = "my-package"
 
 [dependencies]
-"foo/bar" = { version = "0.1.0", registry = "namespace-fork" }
+"foo/bar" = { version = "0.1.0", registry = "cratespaces" }
 </code></pre>
 
 <p>For more information, the full docs on how to use an alternative
