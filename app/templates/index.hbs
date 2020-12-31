@@ -17,15 +17,17 @@
 <div local-class='blurb'>
   <div local-class='intro'>
 
+		<p>
     This is a fork of <a href="https://crates.io">crates.io</a> for
     the purpose of experimenting with namespaces as described in
     <a href="https://github.com/Manishearth/namespacing-rfc/blob/main/0000-packages-as-optional-namespaces.md">this RFC</a>.
+		</p>
+		<p><strong>The contents of this registry may be deleted at any time as part of the experiment. DO NOT RELY ON THE CONTENTS OF THIS REGISTRY.</strong></p>
 
-    To use this registry to publish and use crates with namespaces, you need to install Caeg's fork of Cargo. See
-    <a href="https://github.com/caeg-industries/cargo">https://github.com/caeg-industries/cargo</a> for installation
-    instructions.
-
+		<p>
     The source code for this instance of crates.io is available on <a href="https://github.com/integer32llc/crates.io/tree/subcrates">Github</a>.
+		</p>
+
   </div>
 
   <div local-class='stats'>
@@ -47,12 +49,19 @@
 </div>
 
 <div>
+<h2>Setup</h2>
+<p>
+    To use this registry to publish and use crates with namespaces, you need to install Caeg's fork of Cargo. See
+    <a href="https://github.com/caeg-industries/cargo">https://github.com/caeg-industries/cargo</a> for installation
+    instructions.
+</p>
+
 <p>Once you have the fork of Cargo set up, you can use this registry to
 test out the namespacing functionality. The URL of the index for this
 fork is <a href="https://github.com/integer32llc/crates.io-namespace-fork-index.git">
 https://github.com/integer32llc/crates.io-namespace-fork-index.git</a></p>
 
-<p>Create a <code>.cargo/config.toml</code> file in your project with the following contents to tell Cargo about the registry and name it `cratespaces`:</p>
+<p>Create a <code>.cargo/config.toml</code> file in your project with the following contents to tell Cargo about the registry and name it <code>cratespaces</code> (or whatever you'd like):</p>
 <pre><code>[registries]
 cratespaces = { index = "https://github.com/integer32llc/crates.io-namespace-fork-index.git" }
 </code></pre>
